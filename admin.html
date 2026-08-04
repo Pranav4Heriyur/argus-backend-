@@ -81,12 +81,31 @@
     <label>Password</label>
     <input id="login-password" type="password" onkeydown="if(event.key==='Enter')doLogin()">
     <div style="margin-top:16px;"><button onclick="doLogin()" style="width:100%;">Sign in</button></div>
+    <div style="margin-top:10px;text-align:center;">
+      <a href="#" onclick="showForgot();return false;" style="font-size:13px;">Forgot password?</a>
+    </div>
     <div class="hint">
       Demo accounts:<br>
       <code>superadmin@argus.school</code> / super1234<br>
       <code>coordinator2@argus.school</code> / coord1234<br>
       <code>class2@argus.school</code> / teach1234<br>
       <code>it@argus.school</code> / itadmin1234
+    </div>
+  </div>
+</div>
+
+<div id="forgot-screen" class="login-wrap hidden">
+  <div class="card">
+    <h2>Reset password</h2>
+    <div id="forgot-msg" class="msg"></div>
+    <label>Email</label>
+    <input id="forgot-email" type="email" placeholder="you@argus.school" onkeydown="if(event.key==='Enter')doForgot()">
+    <div style="margin-top:16px;"><button onclick="doForgot()" style="width:100%;">Send reset link</button></div>
+    <div style="margin-top:10px;text-align:center;">
+      <a href="#" onclick="showLogin();return false;" style="font-size:13px;">Back to sign in</a>
+    </div>
+    <div class="hint">
+      We'll email a link if that address has an account. It expires in 30 minutes.
     </div>
   </div>
 </div>
@@ -325,6 +344,38 @@ async function doLogin() {
     localStorage.setItem("argus_token", token);
     await boot();
   } catch (e) { showMsg("login-msg", e.message, false); }
+}
+
+function showForgot() {
+  document.getElementById("login-screen").classList.add("hidden");
+  document.getElementById("forgot-screen").classList.remove("hidden");
+  document.getElementById("forgot-email").value = document.getElementById("login-email").value || "";
+  document.getElementById("forgot-msg").className = "msg";
+}
+
+function showLogin() {
+  document.getElementById("forgot-screen").classList.add("hidden");
+  document.getElementById("login-screen").classList.remove("hidden");
+}
+
+async function doForgot() {
+  const email = document.getElementById("forgot-email").value.trim();
+  if (!email) return showMsg("forgot-msg", "Enter your email first", false);
+  try {
+    const data = await api("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    if (data.demo_reset_url) {
+      document.getElementById("forgot-msg").innerHTML =
+        `Demo mode (no email configured) — <a href="${data.demo_reset_url}" target="_blank">click here to reset the password</a>`;
+      document.getElementById("forgot-msg").className = "msg ok";
+    } else {
+      showMsg("forgot-msg", data.message || "If that email is registered, a reset link has been sent.", true);
+    }
+  } catch (e) {
+    showMsg("forgot-msg", e.message, false);
+  }
 }
 
 function logout() {

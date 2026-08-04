@@ -99,12 +99,25 @@ router.post("/forgot-password", async (req, res) => {
   const base = process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`;
   const resetUrl = `${base}/reset-password.html?token=${rawToken}`;
 
+  let mailResult = { delivered: false };
   try {
-    await sendResetEmail(user.email, resetUrl);
+    mailResult = await sendResetEmail(user.email, resetUrl);
   } catch (err) {
     console.error("Failed to send reset email:", err.message);
     // Still return the generic message - don't leak whether the account
     // exists, and don't block the response on an email provider hiccup.
+  }
+
+  // Demo convenience: when no real SMTP is configured, hand the reset link
+  // straight back in the response so it can be shown on screen instead of
+  // requiring an actual email inbox. Remove this block before going live
+  // with real users, since it would let anyone reset anyone's password.
+  if (!mailResult.delivered && process.env.SMTP_USER) {
+    // real SMTP is configured but delivery still failed - don't leak the link
+    return res.json(generic);
+  }
+  if (!mailResult.delivered) {
+    return res.json({ ...generic, demo_reset_url: resetUrl });
   }
 
   res.json(generic);
