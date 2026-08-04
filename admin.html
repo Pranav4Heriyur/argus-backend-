@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Argus Admin Portal</title>
+<style>
+  :root{
+    --purple:#6C5CE7; --purple-dark:#5A4BD4; --purple-light:#EFEDFB;
+    --border:#DCDCDC; --gray:#6B7280; --green:#2F9E52; --red:#E4572E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:#F4F3F9;color:#1F2430;}
+  header{background:#fff;border-bottom:1px solid var(--border);padding:14px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:20;}
+  header h1{font-size:17px;margin:0;}
+  header .who{font-size:13px;color:var(--gray);}
+  .wrap{max-width:1000px;margin:0 auto;padding:22px 24px 60px;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+  .card h2{font-size:15px;margin:0 0 14px;}
+  .card h2 .sub{font-size:12px;font-weight:400;color:var(--gray);margin-left:6px;}
+  label{display:block;font-size:12px;font-weight:600;color:#555;margin:10px 0 4px;}
+  input,select,textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;outline:none;background:#fff;}
+  input:focus,select:focus,textarea:focus{border-color:var(--purple);}
+  button{background:var(--purple);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+  button:hover{background:var(--purple-dark);}
+  button.ghost{background:#fff;color:var(--purple-dark);border:1px solid var(--border);}
+  button.ghost:hover{background:var(--purple-light);}
+  button.danger{background:var(--red);}
+  button.danger:hover{opacity:.9;}
+  button.small{padding:5px 10px;font-size:12px;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #eee;vertical-align:middle;}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#999;}
+  tr.clickable{cursor:pointer;}
+  tr.clickable:hover td{background:#faf9ff;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > *{flex:1;min-width:150px;}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--purple-light);color:var(--purple-dark);}
+  .pill.off{background:#f2f2f2;color:#888;}
+  .pill.on{background:#E4F6E9;color:var(--green);}
+  .msg{padding:10px 13px;border-radius:8px;font-size:13px;margin-bottom:12px;display:none;}
+  .msg.err{background:#FDECEA;color:#B3261E;display:block;}
+  .msg.ok{background:#E4F6E9;color:#1a7f42;display:block;}
+  .hidden{display:none;}
+  .tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+  .tabs button{background:#fff;color:#555;border:1px solid var(--border);}
+  .tabs button.active{background:var(--purple);color:#fff;border-color:var(--purple);}
+  .login-wrap{max-width:380px;margin:80px auto;}
+  .hint{font-size:12px;color:var(--gray);margin-top:10px;line-height:1.7;}
+  code{background:#f4f3f9;padding:1px 5px;border-radius:4px;font-size:12px;}
+  .subtabs{display:flex;gap:6px;margin-bottom:16px;}
+  .subtabs button{background:#f0eefb;color:var(--purple-dark);border:none;font-size:13px;}
+  .subtabs button.active{background:var(--purple);color:#fff;}
+  .detail-overlay{position:fixed;inset:0;background:rgba(30,25,50,0.45);z-index:50;display:flex;justify-content:center;align-items:flex-start;overflow-y:auto;padding:40px 16px;}
+  .detail-overlay.hidden{display:none;}
+  .detail-sheet{background:#fff;border-radius:18px;max-width:640px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.3);overflow:hidden;}
+  .detail-head{background:linear-gradient(135deg,var(--purple),var(--purple-dark));color:#fff;padding:26px 28px;}
+  .detail-head .avatar{width:60px;height:60px;border-radius:16px;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;margin-bottom:12px;}
+  .detail-head h2{margin:0;font-size:22px;}
+  .detail-head p{margin:4px 0 0;opacity:.9;font-size:14px;}
+  .detail-body{padding:24px 28px;}
+  .detail-section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#aaa;margin:20px 0 10px;}
+  .detail-section-label:first-child{margin-top:0;}
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;}
+  .detail-field label{font-size:11px;color:#999;margin:0 0 2px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  .detail-field .val{font-size:14.5px;color:#1F2430;}
+  .detail-field.full{grid-column:1 / -1;}
+  .detail-actions{display:flex;gap:10px;justify-content:flex-end;padding:18px 28px;border-top:1px solid #eee;background:#fafafa;}
+  .file-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--purple-light);color:var(--purple-dark);padding:4px 10px;border-radius:8px;text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="login-wrap">
+  <div class="card">
+    <h2>Argus Admin Portal</h2>
+    <div id="login-msg" class="msg"></div>
+    <label>Email</label>
+    <input id="login-email" type="email" placeholder="you@argus.school">
+    <label>Password</label>
+    <input id="login-password" type="password" onkeydown="if(event.key==='Enter')doLogin()">
+    <div style="margin-top:16px;"><button onclick="doLogin()" style="width:100%;">Sign in</button></div>
+    <div class="hint">
+      Demo accounts:<br>
+      <code>superadmin@argus.school</code> / super1234<br>
+      <code>coordinator2@argus.school</code> / coord1234<br>
+      <code>class2@argus.school</code> / teach1234<br>
+      <code>it@argus.school</code> / itadmin1234
+    </div>
+  </div>
+</div>
+
+<div id="app-screen" class="hidden">
+  <header>
+    <h1>Argus Admin Portal</h1>
+    <div>
+      <span class="who" id="who"></span>
+      <button class="ghost small" onclick="logout()" style="margin-left:12px;">Sign out</button>
+    </div>
+  </header>
+  <div class="wrap">
+    <div id="global-msg" class="msg"></div>
+    <div class="tabs" id="tabs"></div>
+
+    <div id="panel-people" class="panel hidden">
+      <div class="subtabs" id="people-subtabs">
+        <button data-sub="students" class="active" onclick="showPeopleSub('students')">Students &amp; Parents</button>
+        <button data-sub="staff" onclick="showPeopleSub('staff')">Staff accounts</button>
+      </div>
+
+      <div id="people-students">
+        <div class="card">
+          <h2>Add a student <span class="sub">creates the child and a linked parent login together</span></h2>
+          <div class="row">
+            <div><label>Child full name</label><input id="s-name"></div>
+            <div><label>Grade</label><select id="s-grade"></select></div>
+            <div><label>Admission number</label><input id="s-admno" placeholder="PHX-2024-0001"></div>
+          </div>
+          <div class="row">
+            <div><label>Admission date</label><input id="s-admdate" type="date"></div>
+            <div><label>Reading level (optional)</label><input id="s-level" placeholder="Level 2 Reader"></div>
+          </div>
+          <div class="detail-section-label">Parent / guardian</div>
+          <div class="row">
+            <div><label>Parent full name</label><input id="s-pname"></div>
+            <div><label>Login email (becomes the parent account)</label><input id="s-pemail" type="email"></div>
+          </div>
+          <div class="row">
+            <div><label>Contact phone</label><input id="s-phone" placeholder="+91 ..."></div>
+            <div><label>Home address</label><input id="s-address"></div>
+          </div>
+          <div class="detail-section-label">Transport</div>
+          <div class="row">
+            <div><label>Method</label>
+              <select id="s-transport" onchange="toggleBusRoute()">
+                <option value="">Not set</option>
+                <option>School Bus</option>
+                <option>Own Transport</option>
+                <option>Walks</option>
+              </select>
+            </div>
+            <div id="s-route-wrap" style="display:none;"><label>Bus route</label><input id="s-route" placeholder="Route 47A"></div>
+          </div>
+          <div style="margin-top:16px;"><button onclick="createStudent()">Add student</button></div>
+        </div>
+
+        <div class="card">
+          <h2>Students <span class="sub">tap a row to open the full profile</span></h2>
+          <div style="margin-bottom:12px;max-width:220px;">
+            <select id="student-grade-filter" onchange="loadStudents()"></select>
+          </div>
+          <table><thead><tr><th>Name</th><th>Grade</th><th>Admission no.</th><th>Parent</th><th>Transport</th></tr></thead>
+          <tbody id="students-body"></tbody></table>
+        </div>
+      </div>
+
+      <div id="people-staff" class="hidden">
+        <div class="card">
+          <h2>Create a staff account</h2>
+          <div class="row">
+            <div><label>Full name</label><input id="u-name"></div>
+            <div><label>Email</label><input id="u-email" type="email"></div>
+          </div>
+          <div class="row">
+            <div><label>Role</label><select id="u-role"></select></div>
+            <div><label>Grade</label><select id="u-grade"></select></div>
+            <div><label>Subject (teachers)</label><input id="u-subject" placeholder="Physics"></div>
+          </div>
+          <div style="margin-top:14px;"><button onclick="createUser()">Create account</button></div>
+        </div>
+        <div class="card">
+          <h2>Staff accounts</h2>
+          <table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Grade</th><th>Subject</th><th>Status</th><th></th></tr></thead>
+          <tbody id="users-body"></tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-approvals" class="panel hidden">
+      <div class="card">
+        <h2>Marks upload approvals</h2>
+        <p style="font-size:13px;color:var(--gray);margin:0 0 14px;">Teachers cannot upload marks until you switch the matching row on.</p>
+        <div class="row">
+          <div><label>Grade</label><select id="p-grade"></select></div>
+          <div><label>Test</label>
+            <select id="p-test">
+              <option>Periodic Test 1</option><option>Periodic Test 2</option>
+              <option>Periodic Test 3</option><option>Term Test 1</option><option>Term Test 2</option>
+            </select>
+          </div>
+          <div><label>Subject</label><input id="p-subject" placeholder="Physics"></div>
+        </div>
+        <div style="margin-top:14px;">
+          <button onclick="setPermission(true)">Allow uploads</button>
+          <button class="ghost" onclick="setPermission(false)">Lock uploads</button>
+          <button class="ghost" onclick="loadPermissions()">Refresh</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Current permissions</h2>
+        <table><thead><tr><th>Grade</th><th>Test</th><th>Subject</th><th>Status</th><th>Set by</th></tr></thead>
+        <tbody id="perms-body"></tbody></table>
+      </div>
+    </div>
+
+    <div id="panel-marks" class="panel hidden">
+      <div class="card">
+        <h2>Upload marks</h2>
+        <div id="upload-status" class="msg"></div>
+        <div class="row">
+          <div><label>Test</label>
+            <select id="m-test" onchange="checkCanUpload()">
+              <option>Periodic Test 1</option><option>Periodic Test 2</option>
+              <option>Periodic Test 3</option><option>Term Test 1</option><option>Term Test 2</option>
+            </select>
+          </div>
+          <div><label>Total marks</label><input id="m-total" type="number" value="70"></div>
+        </div>
+        <table style="margin-top:14px;"><thead><tr><th>Student</th><th style="width:140px;">Score</th></tr></thead>
+        <tbody id="marks-body"></tbody></table>
+        <div style="margin-top:14px;"><button id="m-submit" onclick="uploadMarks()">Submit marks</button></div>
+      </div>
+    </div>
+
+    <div id="panel-attendance" class="panel hidden">
+      <div class="card">
+        <h2>Attendance</h2>
+        <label>Date</label>
+        <input id="a-date" type="date" style="max-width:220px;" onchange="loadAttendance()">
+        <table style="margin-top:14px;"><thead><tr><th>Student</th><th style="width:200px;">Status</th></tr></thead>
+        <tbody id="attendance-body"></tbody></table>
+        <div style="margin-top:14px;"><button onclick="saveAttendance()">Save attendance</button></div>
+      </div>
+    </div>
+
+    <div id="panel-almanac" class="panel hidden">
+      <div class="card">
+        <h2>Add an almanac entry</h2>
+        <div class="row">
+          <div><label>Date</label><input id="al-date" type="date"></div>
+          <div><label>Category</label>
+            <select id="al-category">
+              <option value="PT1">PT1</option><option value="PT2">PT2</option>
+              <option value="PT3">PT3 (Term Test)</option>
+              <option value="HOLIDAY">Holiday</option><option value="EVENT">Event</option>
+            </select>
+          </div>
+        </div>
+        <label>Title</label><input id="al-title" placeholder="Independence Day">
+        <label>Note</label><input id="al-note" placeholder="School closed">
+        <div style="margin-top:14px;"><button onclick="addAlmanac()">Add entry</button></div>
+      </div>
+      <div class="card">
+        <h2>Calendar entries</h2>
+        <table><thead><tr><th>Date</th><th>Title</th><th>Category</th><th>Note</th><th></th></tr></thead>
+        <tbody id="almanac-body"></tbody></table>
+      </div>
+    </div>
+
+    <div id="panel-notices" class="panel hidden">
+      <div class="card">
+        <h2>Post a notice <span class="sub">attach a PDF or image if you like</span></h2>
+        <div class="row">
+          <div><label>Category</label><input id="n-category" placeholder="Cafeteria"></div>
+          <div><label>Grade (blank = school-wide)</label><select id="n-grade"></select></div>
+        </div>
+        <label>Title</label><input id="n-title">
+        <label>Body</label><textarea id="n-body" rows="3"></textarea>
+        <label>Attachment (optional, PDF / image, under 3 MB)</label>
+        <input id="n-file" type="file" accept=".pdf,image/*">
+        <div style="margin-top:14px;"><button onclick="postNotice()">Post notice</button></div>
+      </div>
+      <div class="card">
+        <h2>Recent notices</h2>
+        <table><thead><tr><th>Title</th><th>Category</th><th>Grade</th><th>File</th><th>Posted by</th><th></th></tr></thead>
+        <tbody id="notices-body"></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="detail-overlay" class="detail-overlay hidden" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-sheet" id="detail-sheet"></div>
+</div>
+
+<script>
+const API = ""; // same origin in dev. Paste your deployed API URL here when hosting.
+let token = localStorage.getItem("argus_token");
+let me = null;
+let grades = [];
+
+async function api(path, options = {}) {
+  const res = await fetch(API + "/api" + path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: "Bearer " + token } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+function showMsg(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = "msg " + (ok ? "ok" : "err");
+  setTimeout(() => { el.className = "msg"; }, 6000);
+}
+function esc(s){ return (s == null ? "" : String(s)).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function doLogin() {
+  try {
+    const data = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: document.getElementById("login-email").value,
+        password: document.getElementById("login-password").value,
+      }),
+    });
+    token = data.token;
+    localStorage.setItem("argus_token", token);
+    await boot();
+  } catch (e) { showMsg("login-msg", e.message, false); }
+}
+
+function logout() {
+  localStorage.removeItem("argus_token");
+  token = null; me = null;
+  document.getElementById("app-screen").classList.add("hidden");
+  document.getElementById("login-screen").classList.remove("hidden");
+}
+
+const TAB_ACCESS = {
+  people:     ["SUPER_ADMIN", "ADMIN", "COORDINATOR"],
+  approvals:  ["SUPER_ADMIN", "ADMIN", "COORDINATOR"],
+  marks:      ["TEACHER"],
+  attendance: ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"],
+  almanac:    ["IT_ADMIN", "SUPER_ADMIN"],
+  notices:    ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN", "IT_ADMIN"],
+};
+const TAB_LABELS = {
+  people: "People", approvals: "Marks approvals", marks: "Upload marks",
+  attendance: "Attendance", almanac: "Almanac", notices: "Notices",
+};
+
+async function boot() {
+  me = await api("/auth/me");
+  grades = await api("/users/meta/grades");
+
+  document.getElementById("login-screen").classList.add("hidden");
+  document.getElementById("app-screen").classList.remove("hidden");
+  document.getElementById("who").textContent =
+    `${me.name} (${me.role}${me.grade_name ? ", " + me.grade_name : ""}${me.subject ? ", " + me.subject : ""})`;
+
+  const allowed = Object.keys(TAB_ACCESS).filter(t => TAB_ACCESS[t].includes(me.role));
+  document.getElementById("tabs").innerHTML = allowed
+    .map(t => `<button data-tab="${t}" onclick="showTab('${t}')">${TAB_LABELS[t]}</button>`).join("");
+
+  fillSelects();
+  if (allowed.length) showTab(allowed[0]);
+}
+
+function fillSelects() {
+  const opts = grades.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
+  ["u-grade", "p-grade", "s-grade"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = (id === "s-grade" ? "" : `<option value="">None</option>`) + opts;
+  });
+  const ng = document.getElementById("n-grade");
+  if (ng) ng.innerHTML = `<option value="">School-wide</option>` + opts;
+  const sgf = document.getElementById("student-grade-filter");
+  if (sgf) sgf.innerHTML = `<option value="">All grades</option>` + opts;
+
+  if (me.grade_id) {
+    ["p-grade", "s-grade", "student-grade-filter"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = me.grade_id;
+    });
+  }
+  const roleSel = document.getElementById("u-role");
+  const creatable = {
+    SUPER_ADMIN: ["ADMIN", "IT_ADMIN", "COORDINATOR", "TEACHER"],
+    ADMIN: ["COORDINATOR", "TEACHER"],
+    COORDINATOR: ["TEACHER"],
+  }[me.role] || [];
+  if (roleSel) roleSel.innerHTML = creatable.map(r => `<option>${r}</option>`).join("");
+}
+
+function showTab(tab) {
+  document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
+  document.getElementById("panel-" + tab).classList.remove("hidden");
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  ({
+    people: () => { showPeopleSub("students"); },
+    approvals: loadPermissions, marks: loadMarksForm,
+    attendance: loadAttendance, almanac: loadAlmanac, notices: loadNotices,
+  })[tab]?.();
+}
+
+function showPeopleSub(sub) {
+  document.getElementById("people-students").classList.toggle("hidden", sub !== "students");
+  document.getElementById("people-staff").classList.toggle("hidden", sub !== "staff");
+  document.querySelectorAll("#people-subtabs button").forEach(b => b.classList.toggle("active", b.dataset.sub === sub));
+  if (sub === "students") loadStudents();
+  else loadUsers();
+}
+
+function toggleBusRoute() {
+  const v = document.getElementById("s-transport").value;
+  document.getElementById("s-route-wrap").style.display = v === "School Bus" ? "" : "none";
+}
+
+async function createStudent() {
+  try {
+    const body = {
+      name: document.getElementById("s-name").value,
+      grade_id: document.getElementById("s-grade").value,
+      admission_number: document.getElementById("s-admno").value || null,
+      admission_date: document.getElementById("s-admdate").value || null,
+      level: document.getElementById("s-level").value || null,
+      parent_full_name: document.getElementById("s-pname").value || null,
+      contact_email: document.getElementById("s-pemail").value || null,
+      contact_phone: document.getElementById("s-phone").value || null,
+      home_address: document.getElementById("s-address").value || null,
+      transport_method: document.getElementById("s-transport").value || null,
+      bus_route: document.getElementById("s-route").value || null,
+    };
+    if (!body.name || !body.grade_id) return showMsg("global-msg", "Child name and grade are required", false);
+    const created = await api("/students", { method: "POST", body: JSON.stringify(body) });
+    if (created.parent_temporary_password) {
+      showMsg("global-msg", `Student added. Parent login: ${body.contact_email} / ${created.parent_temporary_password}`, true);
+    } else {
+      showMsg("global-msg", "Student added.", true);
+    }
+    ["s-name","s-admno","s-admdate","s-level","s-pname","s-pemail","s-phone","s-address","s-route"].forEach(id => document.getElementById(id).value = "");
+    loadStudents();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function loadStudents() {
+  try {
+    const gid = document.getElementById("student-grade-filter").value;
+    const students = await api("/students" + (gid ? "?grade_id=" + gid : ""));
+    document.getElementById("students-body").innerHTML = students.map(s => `
+      <tr class="clickable" onclick="openStudent(${s.id})">
+        <td><b>${esc(s.name)}</b></td>
+        <td>${esc(s.grade_name)}</td>
+        <td>${esc(s.admission_number) || "-"}</td>
+        <td>${esc(s.parent_full_name) || "-"}</td>
+        <td>${esc(s.transport_method) || "-"}${s.bus_route ? " (" + esc(s.bus_route) + ")" : ""}</td>
+      </tr>`).join("") || `<tr><td colspan="5" style="color:#999;">No students yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function openStudent(id) {
+  try {
+    const s = await api("/students/" + id);
+    const initials = s.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+    const field = (label, val) => `<div class="detail-field"><label>${label}</label><div class="val">${esc(val) || "-"}</div></div>`;
+    document.getElementById("detail-sheet").innerHTML = `
+      <div class="detail-head">
+        <div class="avatar">${initials}</div>
+        <h2>${esc(s.name)}</h2>
+        <p>${esc(s.grade_name)}${s.level ? " &middot; " + esc(s.level) : ""}</p>
+      </div>
+      <div class="detail-body">
+        <div class="detail-section-label">Admission</div>
+        <div class="detail-grid">
+          ${field("Admission number", s.admission_number)}
+          ${field("Admission date", s.admission_date)}
+        </div>
+        <div class="detail-section-label">Parent / guardian</div>
+        <div class="detail-grid">
+          ${field("Parent full name", s.parent_full_name)}
+          ${field("Login email", s.parent_account ? s.parent_account.email : s.contact_email)}
+          ${field("Contact phone", s.contact_phone)}
+          ${field("Parent account", s.parent_account ? "Linked (" + esc(s.parent_account.name) + ")" : "Not linked")}
+          <div class="detail-field full"><label>Home address</label><div class="val">${esc(s.home_address) || "-"}</div></div>
+        </div>
+        <div class="detail-section-label">Transport</div>
+        <div class="detail-grid">
+          ${field("Method", s.transport_method)}
+          ${field("Bus route", s.bus_route)}
+        </div>
+      </div>
+      <div class="detail-actions">
+        <button class="ghost" onclick="closeDetail()">Close</button>
+        ${["SUPER_ADMIN","ADMIN"].includes(me.role) ? `<button class="danger" onclick="deleteStudent(${s.id})">Remove student</button>` : ""}
+      </div>`;
+    document.getElementById("detail-overlay").classList.remove("hidden");
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+function closeDetail() { document.getElementById("detail-overlay").classList.add("hidden"); }
+
+async function deleteStudent(id) {
+  if (!confirm("Remove this student permanently?")) return;
+  try {
+    await api("/students/" + id, { method: "DELETE" });
+    closeDetail(); showMsg("global-msg", "Student removed", true); loadStudents();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function createUser() {
+  try {
+    const body = {
+      name: document.getElementById("u-name").value,
+      email: document.getElementById("u-email").value,
+      role: document.getElementById("u-role").value,
+      grade_id: document.getElementById("u-grade").value || null,
+      subject: document.getElementById("u-subject").value || null,
+    };
+    const created = await api("/users", { method: "POST", body: JSON.stringify(body) });
+    showMsg("global-msg", `Created ${created.name}. Temporary password: ${created.temporary_password}`, true);
+    ["u-name","u-email","u-subject"].forEach(id => document.getElementById(id).value = "");
+    loadUsers();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function loadUsers() {
+  try {
+    const users = (await api("/users")).filter(u => u.role !== "PARENT");
+    document.getElementById("users-body").innerHTML = users.map(u => `
+      <tr>
+        <td>${esc(u.name)}</td><td>${esc(u.email)}</td>
+        <td><span class="pill">${u.role}</span></td>
+        <td>${esc(u.grade_name) || "-"}</td><td>${esc(u.subject) || "-"}</td>
+        <td>${u.is_active ? '<span class="pill on">Active</span>' : '<span class="pill off">Inactive</span>'}</td>
+        <td style="white-space:nowrap;">
+          <button class="ghost small" onclick="resetPassword(${u.id})">Reset</button>
+          <button class="danger small" onclick="deactivate(${u.id})">Deactivate</button>
+        </td>
+      </tr>`).join("") || `<tr><td colspan="7" style="color:#999;">No staff accounts yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function resetPassword(id) {
+  try {
+    const r = await api(`/users/${id}/reset-password`, { method: "POST" });
+    showMsg("global-msg", `New temporary password: ${r.temporary_password}`, true);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function deactivate(id) {
+  if (!confirm("Deactivate this account?")) return;
+  try { await api(`/users/${id}`, { method: "DELETE" }); showMsg("global-msg", "Account deactivated", true); loadUsers(); }
+  catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function setPermission(allowed) {
+  try {
+    await api("/scores/permissions", {
+      method: "PUT",
+      body: JSON.stringify({
+        grade_id: document.getElementById("p-grade").value,
+        test_name: document.getElementById("p-test").value,
+        subject: document.getElementById("p-subject").value,
+        allowed,
+      }),
+    });
+    showMsg("global-msg", allowed ? "Uploads allowed" : "Uploads locked", true);
+    loadPermissions();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function loadPermissions() {
+  try {
+    const gradeId = document.getElementById("p-grade").value || me.grade_id;
+    if (!gradeId) return;
+    const perms = await api(`/scores/permissions?grade_id=${gradeId}`);
+    document.getElementById("perms-body").innerHTML = perms.map(p => `
+      <tr><td>${esc(p.grade_name)}</td><td>${esc(p.test_name)}</td><td>${esc(p.subject)}</td>
+      <td>${p.allowed ? '<span class="pill on">Allowed</span>' : '<span class="pill off">Locked</span>'}</td>
+      <td>${esc(p.set_by_name) || "-"}</td></tr>`).join("") ||
+      `<tr><td colspan="5" style="color:#999;">Nothing set for this grade yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function loadMarksForm() {
+  try {
+    const students = await api("/students");
+    document.getElementById("marks-body").innerHTML = students.map(s => `
+      <tr><td>${esc(s.name)}</td>
+      <td><input type="number" data-student="${s.id}" class="mark-input" min="0"></td></tr>`).join("");
+    checkCanUpload();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function checkCanUpload() {
+  try {
+    const test = document.getElementById("m-test").value;
+    const r = await api(`/scores/can-upload?test_name=${encodeURIComponent(test)}`);
+    const el = document.getElementById("upload-status");
+    el.textContent = r.reason;
+    el.className = "msg " + (r.allowed ? "ok" : "err");
+    document.getElementById("m-submit").disabled = !r.allowed;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function uploadMarks() {
+  try {
+    const total = Number(document.getElementById("m-total").value);
+    const entries = [...document.querySelectorAll(".mark-input")]
+      .filter(i => i.value !== "")
+      .map(i => ({ student_id: Number(i.dataset.student), score: Number(i.value), total }));
+    if (!entries.length) return showMsg("global-msg", "Enter at least one score", false);
+    await api("/scores", { method: "POST", body: JSON.stringify({ test_name: document.getElementById("m-test").value, entries }) });
+    showMsg("global-msg", `Uploaded ${entries.length} scores. Parents can see them now.`, true);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function loadAttendance() {
+  try {
+    const dateEl = document.getElementById("a-date");
+    if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+    const rows = await api(`/attendance?date=${dateEl.value}&grade_id=${me.grade_id || ""}`);
+    document.getElementById("attendance-body").innerHTML = rows.map(r => `
+      <tr><td>${esc(r.student_name)}</td><td>
+        <select data-student="${r.student_id}" class="att-input">
+          ${["PRESENT","ABSENT","LATE","EXCUSED"].map(s => `<option value="${s}" ${r.status === s ? "selected" : ""}>${s}</option>`).join("")}
+        </select></td></tr>`).join("");
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function saveAttendance() {
+  try {
+    const entries = [...document.querySelectorAll(".att-input")].map(i => ({ student_id: Number(i.dataset.student), status: i.value }));
+    await api("/attendance", { method: "POST", body: JSON.stringify({ date: document.getElementById("a-date").value, entries }) });
+    showMsg("global-msg", "Attendance saved", true);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function addAlmanac() {
+  try {
+    await api("/almanac", { method: "POST", body: JSON.stringify({
+      date: document.getElementById("al-date").value,
+      title: document.getElementById("al-title").value,
+      category: document.getElementById("al-category").value,
+      note: document.getElementById("al-note").value,
+    })});
+    showMsg("global-msg", "Entry added", true);
+    ["al-title","al-note"].forEach(id => document.getElementById(id).value = "");
+    loadAlmanac();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function loadAlmanac() {
+  try {
+    const events = await api("/almanac");
+    document.getElementById("almanac-body").innerHTML = events.map(e => `
+      <tr><td>${e.date}</td><td>${esc(e.title)}</td>
+      <td><span class="pill">${e.category}</span></td><td>${esc(e.note) || "-"}</td>
+      <td><button class="danger small" onclick="deleteAlmanac(${e.id})">Delete</button></td></tr>`).join("") ||
+      `<tr><td colspan="5" style="color:#999;">No entries yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function deleteAlmanac(id) {
+  try { await api(`/almanac/${id}`, { method: "DELETE" }); loadAlmanac(); }
+  catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+async function postNotice() {
+  try {
+    const body = {
+      title: document.getElementById("n-title").value,
+      body: document.getElementById("n-body").value,
+      category: document.getElementById("n-category").value,
+      grade_id: document.getElementById("n-grade").value || null,
+    };
+    const file = document.getElementById("n-file").files[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024) return showMsg("global-msg", "File is too large. Keep it under 3 MB.", false);
+      body.attachment_name = file.name;
+      body.attachment_data = await readFileAsDataUrl(file);
+    }
+    await api("/notices", { method: "POST", body: JSON.stringify(body) });
+    showMsg("global-msg", "Notice posted", true);
+    ["n-title","n-body"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("n-file").value = "";
+    loadNotices();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function loadNotices() {
+  try {
+    const notices = await api("/notices");
+    document.getElementById("notices-body").innerHTML = notices.map(n => `
+      <tr><td>${esc(n.title)}</td><td>${esc(n.category)}</td>
+      <td>${esc(n.grade_name) || "School-wide"}</td>
+      <td>${n.has_attachment ? `<a class="file-chip" href="#" onclick="downloadAttachment(${n.id});return false;">${esc(n.attachment_name)}</a>` : "-"}</td>
+      <td>${esc(n.posted_by_name) || "-"}</td>
+      <td><button class="danger small" onclick="deleteNotice(${n.id})">Delete</button></td></tr>`).join("") ||
+      `<tr><td colspan="6" style="color:#999;">No notices yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function downloadAttachment(id) {
+  try {
+    const a = await api(`/notices/${id}/attachment`);
+    const link = document.createElement("a");
+    link.href = a.data; link.download = a.name; link.click();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function deleteNotice(id) {
+  try { await api(`/notices/${id}`, { method: "DELETE" }); loadNotices(); }
+  catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+if (token) boot().catch(() => logout());
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: argus-backend
+    runtime: node
+    plan: free
+    # Reseeds demo data on every deploy so testers always start clean.
+    # Remove "npm run seed &&" once you want data to persist between deploys.
+    buildCommand: npm install && npm run seed
+    startCommand: npm start
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PORT
+        value: 10000
+      - key: SMTP_USER
+        value: ""
+      - key: SMTP_PASS
+        value: ""
+      - key: MAIL_FROM
+        value: ""
+      - key: APP_BASE_URL
+        sync: false

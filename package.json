@@ -1,0 +1,22 @@
+{
+  "name": "argus-backend",
+  "version": "1.0.0",
+  "description": "Argus school app backend: auth, role-based access, notices, messages, test scores, attendance, almanac",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node db/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "nodemailer": "^6.9.14"
+  }
+}

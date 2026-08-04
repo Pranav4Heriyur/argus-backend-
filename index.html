@@ -1,0 +1,2640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Argus - Parent View</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+<style>
+  :root{
+    --purple: #6C5CE7;
+    --purple-dark: #5A4BD4;
+    --purple-light: #EFEDFB;
+    --peach: #FDEEDD;
+    --peach-text: #8A5A2B;
+    --gray-text: #6B7280;
+    --border: #DCDCDC;
+    font-size: 16px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:Arial,Helvetica,sans-serif;
+    background:#EDEDED;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    padding:24px 0;
+  }
+  #phone-frame{
+    width:375px;
+    height:760px;
+    background:#fff;
+    border-radius:32px;
+    overflow:hidden;
+    box-shadow:0 30px 70px rgba(76,50,180,0.28), 0 8px 20px rgba(0,0,0,0.15), 0 0 0 6px rgba(255,255,255,0.6);
+    border:1px solid #e4e0f5;
+    display:flex;
+    flex-direction:column;
+    flex-shrink:0;
+    position:relative;
+  }
+  #phone-frame::before{
+    content:"";
+    position:absolute;
+    top:8px;
+    left:50%;
+    transform:translateX(-50%);
+    width:90px;
+    height:5px;
+    border-radius:4px;
+    background:#e4e0f5;
+    z-index:5;
+  }
+  #app{
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    width:100%;
+    overflow:hidden;
+  }
+  header.topbar{
+    padding:22px 20px 14px;
+    border-bottom:1px solid var(--border);
+    flex-shrink:0;
+    background:linear-gradient(180deg, #f7f5fd 0%, #ffffff 100%);
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+  }
+  .greeting h1{
+    font-size:20px;
+    margin:0 0 4px;
+    font-weight:800;
+    letter-spacing:-.01em;
+  }
+  .bell{
+    position:relative;
+    width:38px;height:38px;
+    border-radius:50%;
+    background:var(--purple-light);
+    border:none;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    flex-shrink:0;
+    box-shadow:0 2px 6px rgba(108,92,231,0.15);
+    transition:background .15s ease, transform .15s ease;
+  }
+  .bell:hover{background:#e2ddf9;transform:translateY(-1px);}
+  .bell .badge{
+    position:absolute;top:-3px;right:-3px;
+    background:#E4572E;
+    color:#fff;font-size:10px;font-weight:bold;
+    border-radius:10px;padding:2px 5px;
+    min-width:16px;text-align:center;
+    box-shadow:0 1px 3px rgba(0,0,0,0.2);
+  }
+  .meta-line{
+    font-size:13px;
+    color:var(--gray-text);
+    margin:2px 0;
+  }
+  main{
+    flex:1;
+    min-height:0;
+    overflow-y:auto;
+    padding:14px 18px 16px;
+    scrollbar-width:thin;
+    scrollbar-color:#d6d1f5 transparent;
+  }
+  main::-webkit-scrollbar{width:5px;}
+  main::-webkit-scrollbar-track{background:transparent;}
+  main::-webkit-scrollbar-thumb{background:#d6d1f5;border-radius:10px;}
+
+  .view.active{animation:fadeIn .18s ease;}
+  @keyframes fadeIn{
+    from{opacity:0;transform:translateY(4px);}
+    to{opacity:1;transform:translateY(0);}
+  }
+
+  .banner{
+    background:var(--peach);
+    color:var(--peach-text);
+    border:1px solid #f0d9b5;
+    border-radius:10px;
+    padding:11px 13px;
+    font-size:12.5px;
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .banner button{
+    background:none;border:none;color:var(--peach-text);
+    font-size:15px;cursor:pointer;line-height:1;
+  }
+
+  .section-head{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:8px;
+  }
+  .section-head h2{font-size:14.5px;margin:0;text-transform:uppercase;letter-spacing:.04em;color:#444;display:flex;align-items:center;gap:8px;}
+  .section-head h2 .icon-chip{
+    width:22px;height:22px;border-radius:7px;
+    background:linear-gradient(135deg, var(--purple-light) 0%, #ded8f9 100%);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .section-head h2 svg{width:13px;height:13px;color:var(--purple-dark);flex-shrink:0;}
+  .section-head a{
+    color:var(--purple-dark);font-size:12.5px;
+    text-decoration:underline;cursor:pointer;
+  }
+
+  .card{
+    border:1px solid #e2ddf7;
+    background:var(--purple-light);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:20px;
+    font-size:13.5px;
+    box-shadow:0 4px 14px rgba(108,92,231,0.08);
+    transition:box-shadow .15s ease, transform .15s ease;
+  }
+  .card:hover{box-shadow:0 6px 20px rgba(108,92,231,0.14);transform:translateY(-1px);}
+  .card p{margin:0 0 6px;line-height:1.4;}
+
+  .home-msg-item{
+    display:flex;gap:10px;align-items:flex-start;
+    padding:10px 0;
+    cursor:pointer;
+  }
+  .home-msg-item:not(:last-child){border-bottom:1px solid #e2ddf7;}
+  .home-msg-item .avatar-sm{
+    width:32px;height:32px;border-radius:50%;
+    background:#fff;
+    color:var(--purple-dark);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:bold;font-size:11px;
+    flex-shrink:0;
+    box-shadow:0 1px 3px rgba(108,92,231,0.15);
+  }
+  .home-msg-item .home-msg-text{min-width:0;}
+  .home-msg-item b{display:block;font-size:13px;}
+  .home-msg-item span{
+    font-size:12px;color:#5a5570;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+
+  .almanac-preview{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:linear-gradient(135deg, #efedfb 0%, #e4defc 100%);
+    border-radius:16px;
+    padding:14px 16px;
+    cursor:pointer;
+    margin-bottom:20px;
+    box-shadow:0 6px 18px rgba(108,92,231,0.18);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .almanac-preview:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(108,92,231,0.24);}
+  .almanac-date-badge{
+    flex-shrink:0;
+    width:52px;height:52px;
+    border-radius:12px;
+    background:#fff;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px rgba(0,0,0,0.1);
+  }
+  .almanac-date-badge .day{font-size:18px;font-weight:800;color:var(--purple-dark);line-height:1;}
+  .almanac-date-badge .mon{font-size:9.5px;font-weight:bold;color:#8b86a8;text-transform:uppercase;margin-top:2px;}
+  .almanac-preview-text .tag{
+    display:inline-block;
+    font-size:10.5px;font-weight:bold;
+    text-transform:uppercase;
+    padding:2px 9px;
+    border-radius:20px;
+    margin-bottom:5px;
+  }
+  .almanac-preview-text h3{font-size:14.5px;margin:0 0 3px;font-weight:bold;}
+  .almanac-preview-text p{font-size:12px;color:#5a5570;margin:0;}
+
+  .almanac-month-label{
+    font-size:11px;font-weight:bold;color:#999;
+    text-transform:uppercase;letter-spacing:.05em;
+    margin:16px 0 8px;
+  }
+  .almanac-month-label:first-child{margin-top:0;}
+  .almanac-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:11px 13px;
+    margin-bottom:10px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .almanac-row:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.08);}
+  .almanac-row .almanac-date-badge{
+    width:44px;height:44px;
+    border-radius:10px;
+  }
+  .almanac-row .almanac-date-badge .day{font-size:15px;}
+  .almanac-row .almanac-date-badge .mon{font-size:8.5px;}
+  .almanac-row-text{min-width:0;flex:1;}
+  .almanac-row-text .tag{
+    display:inline-block;
+    font-size:10px;font-weight:bold;
+    text-transform:uppercase;
+    padding:2px 8px;
+    border-radius:20px;
+    margin-bottom:4px;
+  }
+  .almanac-row-text h3{font-size:13.5px;margin:0 0 2px;font-weight:bold;}
+  .almanac-row-text p{font-size:12px;color:var(--gray-text);margin:0;}
+
+
+  .bus-card{padding:16px;}
+
+  .bus-header-bar{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .bus-avatar{
+    width:44px;height:44px;border-radius:50%;
+    background:linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    box-shadow:0 3px 10px rgba(108,92,231,0.35);
+  }
+  .bus-avatar svg{width:20px;height:20px;}
+  .bus-header-text{flex:1;min-width:0;}
+  .bus-header-text b{display:block;font-size:15.5px;}
+  .bus-header-text span{font-size:12px;color:var(--gray-text);}
+  .bus-header-actions{display:flex;gap:8px;}
+  .bus-icon-btn{
+    width:34px;height:34px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:#fff;
+    color:#666;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:transform .15s ease, background .15s ease, color .15s ease;
+  }
+  .bus-icon-btn svg{width:15px;height:15px;}
+  .bus-icon-btn:hover{background:var(--purple-light);color:var(--purple-dark);}
+  .bus-icon-btn:active{transform:scale(.92);}
+  .bus-icon-btn.saved{background:var(--purple);border-color:var(--purple);color:#fff;}
+
+  .map-frame{
+    position:relative;
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 6px 18px rgba(0,0,0,0.16);
+    border:1px solid #d8d5ec;
+  }
+  #leaflet-map{
+    width:100%;
+    height:300px;
+    background:#e5e3f1;
+  }
+  .map-pin{
+    width:14px;height:14px;border-radius:50%;
+    border:2.5px solid #fff;
+    box-shadow:0 1px 4px rgba(0,0,0,0.35);
+  }
+  .start-pin{background:#2F9E52;}
+  .end-pin{background:#E4572E;}
+  .bus-pin{
+    width:20px;height:20px;
+    background:var(--purple);
+    border:3px solid #fff;
+    box-shadow:0 0 0 5px rgba(108,92,231,0.3), 0 2px 6px rgba(0,0,0,0.35);
+  }
+
+  .map-overlay-top-left{
+    position:absolute;top:12px;left:12px;
+    display:flex;flex-direction:column;gap:8px;
+    z-index:1000;
+  }
+  .map-pill{
+    display:flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,0.95);
+    color:#2b2a52;
+    font-size:12px;font-weight:bold;
+    padding:7px 12px;
+    border-radius:20px;
+    border:none;
+    box-shadow:0 2px 8px rgba(0,0,0,0.18);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .live-pill{color:#1a8f4c;cursor:default;}
+  .live-dot{
+    width:7px;height:7px;border-radius:50%;
+    background:#22c55e;
+    animation:livePulse 1.6s infinite;
+  }
+  @keyframes livePulse{
+    0%{box-shadow:0 0 0 0 rgba(34,197,94,0.5);}
+    70%{box-shadow:0 0 0 7px rgba(34,197,94,0);}
+    100%{box-shadow:0 0 0 0 rgba(34,197,94,0);}
+  }
+  .route-picker{position:relative;}
+  .route-dropdown{
+    position:absolute;top:calc(100% + 6px);left:0;
+    background:#fff;
+    border-radius:12px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.22);
+    overflow:hidden;
+    min-width:190px;
+    z-index:1001;
+  }
+  .route-dropdown.hidden{display:none;}
+  .route-dropdown button{
+    display:block;width:100%;
+    text-align:left;
+    background:none;border:none;
+    padding:10px 13px;
+    font-size:12.5px;
+    color:#2b2a52;
+    cursor:pointer;
+    font-family:inherit;
+    border-bottom:1px solid #f0eefb;
+  }
+  .route-dropdown button:last-child{border-bottom:none;}
+  .route-dropdown button:hover{background:var(--purple-light);}
+
+  .map-eta-badge{
+    position:absolute;top:12px;right:12px;
+    background:#20233f;
+    color:#fff;
+    padding:9px 14px;
+    border-radius:12px;
+    font-size:15px;font-weight:bold;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    z-index:1000;
+    text-align:center;
+    line-height:1.3;
+  }
+  .map-eta-badge .eta-label{
+    display:block;
+    font-size:9.5px;font-weight:600;
+    text-transform:uppercase;letter-spacing:.04em;
+    color:#9994c9;
+  }
+  .map-eta-badge small{display:block;font-size:10px;font-weight:normal;color:#b7b3d9;margin-top:1px;}
+
+  .map-controls{
+    position:absolute;bottom:12px;right:12px;
+    display:flex;flex-direction:column;gap:6px;
+    z-index:1000;
+  }
+  .map-controls button{
+    width:32px;height:32px;
+    border-radius:9px;
+    border:none;
+    background:#fff;
+    color:#2b2a52;
+    font-size:16px;font-weight:bold;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    box-shadow:0 2px 8px rgba(0,0,0,0.2);
+    transition:transform .1s ease;
+  }
+  .map-controls button svg{width:15px;height:15px;}
+  .map-controls button:active{transform:scale(.9);}
+
+  .map-legend-wrap{
+    position:absolute;bottom:12px;left:12px;
+    z-index:1000;
+  }
+  .legend-toggle{color:#2b2a52;}
+  .bus-legend{
+    margin-top:8px;
+    background:rgba(255,255,255,0.97);
+    border-radius:10px;
+    padding:9px 12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.2);
+    font-size:11.5px;
+    color:#2b2a52;
+    display:flex;flex-direction:column;gap:5px;
+  }
+  .bus-legend.hidden{display:none;}
+  .legend-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;}
+
+  .trip-slider-track{
+    position:relative;
+    height:10px;
+    border-radius:10px;
+    background:#efedfb;
+    margin:4px 4px 10px;
+    cursor:pointer;
+  }
+  .trip-slider-fill{
+    position:absolute;top:0;left:0;height:100%;
+    border-radius:10px;
+    background:linear-gradient(90deg, var(--purple) 0%, var(--purple-dark) 100%);
+    width:0%;
+    pointer-events:none;
+  }
+  .trip-slider-handle{
+    position:absolute;top:50%;left:0%;
+    width:20px;height:20px;
+    border-radius:50%;
+    background:#fff;
+    border:3px solid var(--purple-dark);
+    transform:translate(-50%,-50%);
+    box-shadow:0 2px 6px rgba(0,0,0,0.3);
+    cursor:grab;
+    touch-action:none;
+  }
+  .trip-slider-handle:active{cursor:grabbing;}
+  .trip-slider-labels{
+    display:flex;justify-content:space-between;
+    font-size:11px;color:var(--gray-text);
+    padding:0 4px;
+  }
+
+  .calendar-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .calendar-nav b{font-size:15px;}
+  .calendar-nav button{
+    width:32px;height:32px;
+    border-radius:9px;
+    border:1px solid var(--border);
+    background:#fff;
+    color:var(--purple-dark);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  .calendar-nav button svg{width:15px;height:15px;}
+  .calendar-nav button:hover{background:var(--purple-light);}
+
+  .calendar-grid{
+    display:grid;
+    grid-template-columns:repeat(7, 1fr);
+    gap:5px;
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:12px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+  }
+  .cal-dow{
+    text-align:center;
+    font-size:10.5px;font-weight:bold;
+    color:#999;
+    padding-bottom:6px;
+  }
+  .cal-cell{
+    aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    font-size:12.5px;
+    color:#333;
+  }
+  .cal-cell.empty{visibility:hidden;}
+  .cal-cell.is-today{box-shadow:0 0 0 2px var(--purple-dark) inset;font-weight:bold;}
+
+  .almanac-legend-row{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:10px 12px;
+    margin-bottom:8px;
+  }
+  .almanac-legend-row .legend-swatch{
+    width:12px;height:12px;
+    border-radius:50%;
+    margin-top:3px;
+    flex-shrink:0;
+  }
+  .almanac-legend-row b{display:block;font-size:13px;}
+  .almanac-legend-row span{font-size:12px;color:var(--gray-text);}
+
+  .score-summary-card{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    background:linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+    border-radius:18px;
+    padding:18px;
+    box-shadow:0 8px 22px rgba(108,92,231,0.35);
+    position:relative;
+  }
+  .score-ring{width:84px;height:84px;flex-shrink:0;}
+  #score-ring-fill{transition:stroke-dasharray .6s ease;}
+  .score-ring-label{
+    position:absolute;
+    left:18px;top:18px;
+    width:84px;height:84px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:#fff;
+  }
+  .score-ring-label b{font-size:19px;font-weight:800;line-height:1;}
+  .score-ring-label span{font-size:10px;font-weight:bold;opacity:.85;margin-top:2px;}
+  .score-summary-text{color:#fff;}
+  .score-summary-text h3{font-size:15px;margin:0 0 3px;}
+  .score-summary-text p{font-size:12px;opacity:.85;margin:0;}
+
+  .score-row{
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:13px 15px;
+    margin-bottom:10px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+  }
+  .score-row-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:8px;
+  }
+  .score-row-top b{font-size:13.5px;}
+  .score-row-marks{font-size:12px;color:var(--gray-text);}
+  .score-badge{
+    font-size:11px;font-weight:bold;
+    padding:3px 10px;
+    border-radius:20px;
+  }
+  .score-bar-track{
+    height:8px;
+    border-radius:10px;
+    background:#efedfb;
+    overflow:hidden;
+  }
+  .score-bar-fill{
+    height:100%;
+    border-radius:10px;
+    transition:width .6s ease;
+  }
+
+  .score-mini-preview{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:14px 16px;
+    cursor:pointer;
+    margin-bottom:20px;
+    background:var(--purple-light);
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .score-mini-preview:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.08);}
+  .score-mini-ring{width:44px;height:44px;flex-shrink:0;}
+  .score-mini-text h3{font-size:13.5px;margin:0 0 2px;font-weight:bold;}
+  .score-mini-text p{font-size:12px;color:#5a5570;margin:0;}
+
+  .syllabus-group{
+    border:1px solid var(--border);
+    border-radius:16px;
+    margin-bottom:14px;
+    overflow:hidden;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+  }
+  .syllabus-group-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:11px 15px;
+  }
+  .syllabus-group-head b{font-size:13.5px;}
+  .syllabus-group-head span{font-size:11px;opacity:.85;}
+  .syllabus-chapter-list{background:#fff;padding:6px 0;}
+  .syllabus-chapter-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:9px 15px;
+    font-size:13px;
+    color:#333;
+    border-top:1px solid #f2f0fa;
+  }
+  .syllabus-chapter-row:first-child{border-top:none;}
+  .syllabus-chapter-num{
+    width:22px;height:22px;
+    border-radius:50%;
+    background:var(--purple-light);
+    color:var(--purple-dark);
+    font-size:11px;font-weight:bold;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+
+  .mini-label{
+    font-size:10.5px;font-weight:bold;color:#999;
+    text-transform:uppercase;letter-spacing:.04em;
+    margin-bottom:10px;
+  }
+  .bus-next-stop-card{margin-top:14px;}
+  .stop-row{
+    display:flex;gap:10px;
+    padding-bottom:14px;
+    position:relative;
+  }
+  .stop-row:last-child{padding-bottom:0;}
+  .stop-row .stop-line{
+    display:flex;flex-direction:column;align-items:center;
+    width:12px;flex-shrink:0;
+  }
+  .stop-row .stop-dot{
+    width:11px;height:11px;border-radius:50%;
+    border:2.5px solid var(--purple);
+    background:#fff;
+    flex-shrink:0;
+  }
+  .stop-row.is-current .stop-dot{background:var(--purple);}
+  .stop-row .stop-connector{
+    width:2px;flex:1;
+    background:#e2ddf7;
+    margin-top:3px;
+  }
+  .stop-row:last-child .stop-connector{display:none;}
+  .stop-row b{font-size:13.5px;display:block;}
+  .stop-row span{font-size:12px;color:var(--gray-text);}
+
+  .bus-info-card{margin-top:14px;}
+  .bus-info-grid{
+    display:flex;flex-wrap:wrap;gap:8px;
+  }
+  .plate-pill{
+    background:var(--purple-light);
+    color:var(--purple-dark);
+    font-weight:bold;font-size:12.5px;
+    padding:6px 12px;
+    border-radius:8px;
+    letter-spacing:.03em;
+  }
+  .status-pill{
+    display:flex;align-items:center;gap:6px;
+    background:#E4F6E9;
+    color:#1a8f4c;
+    font-weight:bold;font-size:12px;
+    padding:6px 12px;
+    border-radius:20px;
+  }
+  .status-dot{width:7px;height:7px;border-radius:50%;background:#2F9E52;}
+  .seats-pill{
+    background:#fff;
+    border:1px solid var(--border);
+    color:#555;
+    font-size:12px;font-weight:bold;
+    padding:6px 12px;
+    border-radius:20px;
+  }
+  .bus-info-card p{font-size:12.5px;color:var(--gray-text);}
+  .bus-info-card p b{color:#1F2430;}
+
+  .demo-note{
+    font-size:11.5px;
+    color:#999;
+    text-align:center;
+    margin-top:14px;
+    padding:0 6px;
+    line-height:1.5;
+  }
+  .bus-top-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:12px;
+  }
+  .bus-route-badge{
+    background:#fff;
+    color:var(--purple-dark);
+    font-size:12px;font-weight:bold;
+    padding:4px 11px;
+    border-radius:20px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.08);
+  }
+  .bus-eta{
+    font-size:12.5px;
+    font-weight:bold;
+    color:#2F9E52;
+  }
+  .bus-progress-track{
+    position:relative;
+    height:8px;
+    border-radius:10px;
+    background:#ffffffaa;
+    margin-bottom:10px;
+    overflow:visible;
+  }
+  .bus-progress-fill{
+    height:100%;
+    border-radius:10px;
+    background:linear-gradient(90deg, var(--purple) 0%, var(--purple-dark) 100%);
+  }
+  .bus-progress-dot{
+    position:absolute;
+    top:50%;
+    width:14px;height:14px;
+    border-radius:50%;
+    background:#fff;
+    border:3px solid var(--purple-dark);
+    transform:translate(-50%,-50%);
+    box-shadow:0 1px 4px rgba(0,0,0,0.25);
+  }
+  .bus-stops-row{
+    display:flex;
+    justify-content:space-between;
+    gap:8px;
+    font-size:11.5px;
+    color:#5a5570;
+  }
+  .card p:last-child{margin-bottom:0;}
+  .card a.inline-link{color:var(--purple-dark);text-decoration:underline;cursor:pointer;}
+
+  .notice-preview{
+    background:linear-gradient(135deg, #efedfb 0%, #e4defc 100%);
+    border:none;
+    border-radius:16px;
+    padding:17px;
+    cursor:pointer;
+    margin-bottom:20px;
+    box-shadow:0 6px 18px rgba(108,92,231,0.18);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .notice-preview:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(108,92,231,0.24);}
+  .notice-preview .tag{
+    display:inline-block;
+    font-size:11px;font-weight:bold;color:var(--purple-dark);
+    background:#fff;
+    text-transform:uppercase;
+    padding:4px 11px;
+    border-radius:20px;
+    margin-bottom:7px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.08);
+  }
+  .notice-preview h3{font-size:15.5px;margin:0 0 6px;line-height:1.3;font-weight:bold;}
+  .notice-preview p{font-size:12.5px;color:#5a5570;margin:0 0 6px;}
+  .notice-preview .date{font-size:11px;color:#7a749a;}
+
+  nav.bottombar{
+    display:flex;
+    border-top:1px solid var(--border);
+    background:#fff;
+    flex-shrink:0;
+    padding:8px 8px;
+    gap:4px;
+    box-shadow:0 -4px 12px rgba(0,0,0,0.04);
+  }
+  nav.bottombar button{
+    flex:1;
+    background:none;border:none;
+    padding:9px 2px;
+    font-size:11.5px;
+    color:#777;
+    cursor:pointer;
+    font-family:inherit;
+    border-radius:20px;
+    transition:color .15s ease, background .15s ease;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:3px;
+  }
+  .nav-icon{width:19px;height:19px;flex-shrink:0;}
+  nav.bottombar button:hover{background:#f5f4fb;}
+  nav.bottombar button:active{transform:scale(.94);}
+  nav.bottombar button.active{
+    color:#fff;
+    font-weight:bold;
+    background:linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+    box-shadow:0 3px 10px rgba(108,92,231,0.35);
+  }
+
+  .view{display:none;height:100%;min-height:0;flex-direction:column;overflow:hidden;}
+  .view.active{display:flex;}
+
+  h1,h2,h3{color:#1F2430;}
+
+  #view-messages{position:relative;}
+  #messages-list-panel, #messages-thread-panel{
+    height:100%;
+    min-height:0;
+    display:flex;
+    flex-direction:column;
+  }
+  .teacher-list-item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:13px 14px;
+    border:1px solid #e2ddf7;
+    background:var(--purple-light);
+    cursor:pointer;
+    font-size:13.5px;
+    transition:transform .15s ease, box-shadow .15s ease;
+    border-radius:14px;
+    margin-bottom:10px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+  }
+  .teacher-list-item:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.08);}
+  .teacher-list-item .teacher-avatar{
+    width:40px;height:40px;border-radius:50%;
+    background:#fff;
+    color:var(--purple-dark);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:bold;font-size:13px;
+    flex-shrink:0;
+    box-shadow:0 2px 6px rgba(108,92,231,0.15);
+  }
+  .teacher-list-item b{display:block;font-size:14px;}
+  .teacher-list-item .role{color:var(--purple-dark);display:block;margin:1px 0;font-size:12px;}
+  .teacher-list-item .preview{color:var(--gray-text);font-size:12.5px;}
+
+  .thread-header{
+    display:flex;align-items:center;gap:8px;
+  }
+  .thread-header .back{
+    cursor:pointer;font-size:13px;color:var(--purple-dark);
+    background:var(--purple-light);border:none;
+    padding:6px 12px;
+    border-radius:20px;
+    font-family:inherit;
+    font-weight:bold;
+    transition:background .15s ease;
+  }
+  .thread-header .back:hover{background:#e2ddf9;}
+  .thread-messages{
+    flex:1;
+    min-height:0;
+    display:flex;flex-direction:column;gap:8px;
+    overflow-y:auto;
+    padding:14px 18px;
+  }
+  .bubble{
+    max-width:80%;
+    padding:9px 12px;
+    border-radius:12px;
+    font-size:13.5px;
+    line-height:1.4;
+    border:1px solid var(--border);
+    box-shadow:0 2px 6px rgba(0,0,0,0.04);
+  }
+  .bubble.them{
+    background:#f5f5f7;
+    align-self:flex-start;
+  }
+  .bubble.me{
+    background:var(--purple-light);
+    align-self:flex-end;
+    border-color:#d6d1f5;
+  }
+  .compose-row{
+    display:flex;gap:6px;
+    border-top:1px solid var(--border);
+    padding:10px 18px;
+    flex-shrink:0;
+  }
+  .compose-row input{
+    flex:1;
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:9px 14px;
+    font-size:13.5px;
+    outline:none;
+    font-family:inherit;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .compose-row input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(108,92,231,0.12);}
+  .compose-row button{
+    background:linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+    color:#fff;border:none;
+    border-radius:20px;
+    padding:0 18px;
+    font-size:13px;
+    cursor:pointer;
+    font-family:inherit;
+    box-shadow:0 3px 10px rgba(108,92,231,0.35);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .compose-row button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 14px rgba(108,92,231,0.45);}
+  .compose-row button:active:not(:disabled){transform:scale(.96);}
+  .compose-row button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;}
+
+  .filter-group-label{
+    font-size:11px;font-weight:bold;color:#999;
+    text-transform:uppercase;
+    margin:0 0 6px;
+  }
+  .toggle-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    border:1px solid #e2ddf7;
+    background:var(--purple-light);
+    border-radius:14px;
+    padding:12px 14px;
+    margin-bottom:14px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+  }
+  .toggle-row .toggle-label{
+    font-size:13px;
+    color:#1F2430;
+  }
+  .toggle-row .toggle-label b{color:var(--purple-dark);}
+  .toggle-switch{
+    position:relative;
+    width:44px;height:25px;
+    border-radius:14px;
+    border:none;
+    background:#DCDAE8;
+    cursor:pointer;
+    flex-shrink:0;
+    padding:0;
+    transition:background .15s ease, transform .1s ease;
+  }
+  .toggle-switch:active{transform:scale(.93);}
+  .toggle-switch.on{background:linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);box-shadow:0 2px 8px rgba(108,92,231,0.4);}
+  .toggle-switch .knob{
+    position:absolute;
+    top:3px;left:3px;
+    width:19px;height:19px;
+    border-radius:50%;
+    background:#fff;
+    box-shadow:0 1px 2px rgba(0,0,0,0.25);
+    transition:transform .15s ease;
+  }
+  .toggle-switch.on .knob{transform:translateX(19px);}
+  .filter-row{
+    display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;
+  }
+  .filter-chip{
+    border:1px solid var(--border);
+    background:#fff;
+    color:#555;
+    font-size:11.5px;
+    padding:6px 13px;
+    border-radius:20px;
+    cursor:pointer;
+    font-family:inherit;
+    transition:background .15s ease, color .15s ease, border-color .15s ease, transform .1s ease;
+  }
+  .filter-chip:hover{border-color:var(--purple);}
+  .filter-chip:active{transform:scale(.95);}
+  .filter-chip.active{
+    background:linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+    color:#fff;
+    border-color:var(--purple);
+    box-shadow:0 3px 8px rgba(108,92,231,0.3);
+  }
+  .results-count{
+    font-size:11.5px;
+    color:#999;
+    margin:0 0 10px;
+  }
+  .notice-card{
+    border:1px solid var(--border);
+    border-left:4px solid var(--purple);
+    border-radius:14px;
+    padding:14px 15px;
+    margin-bottom:12px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.06);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .notice-card:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(0,0,0,0.1);}
+  .notice-card .tag{
+    display:inline-block;
+    font-size:10.5px;font-weight:bold;
+    text-transform:uppercase;
+    padding:3px 10px;
+    border-radius:20px;
+    margin-bottom:7px;
+  }
+  .notice-card h3{font-size:14.5px;margin:0 0 5px;font-weight:bold;}
+  .notice-card p{font-size:12.5px;color:var(--gray-text);margin:0 0 5px;line-height:1.4;}
+  .notice-card .date{font-size:11px;color:#9993ad;}
+  .notice-attach{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--purple-dark);background:var(--purple-light);padding:5px 10px;border-radius:8px;margin:6px 0 8px;cursor:pointer;}
+  .notice-attach:hover{background:#e2ddf7;}
+
+  .placeholder{
+    text-align:center;
+    padding:50px 20px;
+    color:var(--gray-text);
+    font-size:13px;
+  }
+
+  .hw-item, .curr-item{
+    border:1px solid #e2ddf7;
+    background:var(--purple-light);
+    border-radius:14px;
+    padding:13px 15px;
+    margin-bottom:10px;
+    font-size:13.5px;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .hw-item:hover, .curr-item:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.08);}
+  .hw-item .row1{display:flex;justify-content:space-between;align-items:center;}
+  .hw-item b{font-size:13.5px;}
+  .curr-item b{font-size:14px;color:var(--purple-dark);}
+  .hw-status{
+    font-size:10.5px;font-weight:bold;
+    padding:4px 10px;border-radius:20px;
+  }
+  .hw-status.pending{background:var(--peach);color:var(--peach-text);}
+  .hw-status.done{background:#E4F6E9;color:#2F9E52;}
+  .hw-item span.due{font-size:11.5px;color:var(--gray-text);}
+
+  .more-item{
+    padding:14px 16px;
+    border:1px solid #e2ddf7;
+    background:var(--purple-light);
+    border-radius:14px;
+    margin-bottom:10px;
+    font-size:13.5px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    cursor:pointer;
+    box-shadow:0 3px 10px rgba(0,0,0,0.05);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .more-item:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,0.08);}
+  .more-item-left{display:flex;align-items:center;gap:12px;}
+  .more-item-left .icon-chip{
+    width:34px;height:34px;border-radius:10px;
+    background:#fff;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    box-shadow:0 1px 3px rgba(108,92,231,0.15);
+  }
+  .more-item-left svg{width:17px;height:17px;color:var(--purple-dark);flex-shrink:0;}
+  .more-item::after{
+    content:"";
+    width:7px;height:7px;
+    border-right:2px solid #c9c4de;
+    border-bottom:2px solid #c9c4de;
+    transform:rotate(-45deg);
+    flex-shrink:0;
+  }
+
+  #login-overlay{
+    position:fixed;inset:0;z-index:9999;
+    background:linear-gradient(160deg,#efedfb 0%,#dcd6f7 100%);
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  #login-overlay.hidden{display:none;}
+  .login-card{
+    background:#fff;border-radius:20px;padding:28px 26px;width:100%;max-width:340px;
+    box-shadow:0 18px 44px rgba(76,50,180,0.24);
+  }
+  .login-card h1{font-size:24px;margin:0 0 2px;color:var(--purple-dark);}
+  .login-sub{font-size:13px;color:var(--gray-text);margin:0 0 18px;}
+  .login-card label{display:block;font-size:11.5px;font-weight:bold;color:#666;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.04em;}
+  .login-card input{
+    width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:10px;
+    font-size:14px;font-family:inherit;outline:none;
+  }
+  .login-card input:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(108,92,231,0.12);}
+  .login-card button{
+    width:100%;margin-top:20px;padding:12px;border:none;border-radius:22px;
+    background:linear-gradient(135deg,var(--purple) 0%,var(--purple-dark) 100%);
+    color:#fff;font-size:14px;font-weight:bold;font-family:inherit;cursor:pointer;
+    box-shadow:0 6px 16px rgba(108,92,231,0.35);
+  }
+  .login-card button:active{transform:scale(.98);}
+  .login-error{
+    display:none;background:#FDECEA;color:#B3261E;font-size:12.5px;
+    padding:9px 12px;border-radius:9px;margin-bottom:4px;line-height:1.45;
+  }
+  .login-error.show{display:block;}
+  .login-hint{font-size:11px;color:#9993ad;margin-top:14px;text-align:center;line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-card">
+    <h1>Argus</h1>
+    <div id="login-view">
+      <p class="login-sub">Parent sign in</p>
+      <div id="login-error" class="login-error"></div>
+      <label>Email</label>
+      <input id="p-login-email" type="email" value="parent@argus.school" autocomplete="username">
+      <label>Password</label>
+      <input id="p-login-password" type="password" value="parent1234" autocomplete="current-password"
+             onkeydown="if(event.key==='Enter')parentLogin()">
+      <button onclick="parentLogin()">Sign in</button>
+      <div style="text-align:right;margin-top:10px;">
+        <a href="#" onclick="showForgotView();return false;" style="font-size:12px;color:var(--purple);text-decoration:none;">Forgot password?</a>
+      </div>
+      <div class="login-hint">Demo account is pre-filled. Make sure the backend is running.</div>
+    </div>
+    <div id="forgot-view" style="display:none;">
+      <p class="login-sub">Reset your password</p>
+      <div id="forgot-error" class="login-error"></div>
+      <div id="forgot-success" class="login-error" style="display:none;background:#eafaf0;color:#1a7f4f;"></div>
+      <label>Email</label>
+      <input id="forgot-email" type="email" placeholder="you@example.com" autocomplete="username"
+             onkeydown="if(event.key==='Enter')submitForgotPassword()">
+      <button onclick="submitForgotPassword()">Send reset link</button>
+      <div style="text-align:right;margin-top:10px;">
+        <a href="#" onclick="showLoginView();return false;" style="font-size:12px;color:var(--purple);text-decoration:none;">Back to sign in</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="phone-frame">
+<div id="app">
+
+  <div class="view active" id="view-home">
+    <header class="topbar">
+      <div class="greeting">
+        <h1>Bob Wigglesworth</h1>
+        <div class="meta-line">Grade 2</div>
+        <div class="meta-line">Your current level is <b style="color:var(--purple-dark);">Newbie</b></div>
+      </div>
+      <button class="bell" onclick="switchTab('notices')" aria-label="Notifications">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5A4BD4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="badge">3</span>
+      </button>
+    </header>
+    <main>
+      <div class="banner">
+        <div>Parent View: certain student only actions are disabled on this view.</div>
+        <button aria-label="Dismiss" onclick="this.closest('.banner').style.display='none'">x</button>
+      </div>
+
+      <div class="section-head">
+        <h2><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>Latest Notice</h2>
+        <a onclick="switchTab('notices')">View all</a>
+      </div>
+      <div class="notice-preview" id="home-notice-preview" onclick="switchTab('notices')"></div>
+
+      <div class="section-head">
+        <h2><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>Message Center</h2>
+        <a onclick="switchTab('messages')">View all</a>
+      </div>
+      <div class="card" id="home-message-preview" style="padding:6px 16px;"></div>
+
+      <div class="section-head">
+        <h2><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="15" height="11"/><polygon points="16 9 20 9 23 12 23 17 16 17 16 9"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg></span>Bus Tracker</h2>
+        <a onclick="switchTab('bus')">Details</a>
+      </div>
+      <div class="card bus-card" onclick="switchTab('bus')" style="cursor:pointer;">
+        <div class="bus-top-row">
+          <span class="bus-route-badge js-bus-route">Route 47A</span>
+          <span class="bus-eta js-bus-eta">Arriving in 12 min</span>
+        </div>
+        <div class="bus-progress-track">
+          <div class="bus-progress-fill js-bus-fill" style="width:55%;"></div>
+          <div class="bus-progress-dot js-bus-dot" style="left:55%;"></div>
+        </div>
+        <div class="bus-stops-row">
+          <span class="js-bus-last-stop">Left Phoenix Greens School, Kokapet, 8:05 AM</span>
+          <span class="js-bus-next-stop">Next stop: Aparna Cyber Commune</span>
+        </div>
+      </div>
+
+      <div class="section-head">
+        <h2><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>Almanac</h2>
+        <a onclick="switchTab('almanac')">View all</a>
+      </div>
+      <div class="almanac-preview" id="home-almanac-preview" onclick="switchTab('almanac')"></div>
+
+      <div class="section-head">
+        <h2><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>Test Scores</h2>
+        <a onclick="switchTab('scores')">View all</a>
+      </div>
+      <div class="score-mini-preview" id="home-score-preview" onclick="switchTab('scores')"></div>
+    </main>
+  </div>
+
+  <div class="view" id="view-homework">
+    <header class="topbar">
+      <div class="greeting"><h1>Homework</h1><div class="meta-line">Bob Wigglesworth, Grade 2</div></div>
+    </header>
+    <main>
+      <div class="hw-item">
+        <div class="row1"><b>Trace and write: capital letters A to M</b><span class="hw-status pending">Pending</span></div>
+        <span class="due">Reading, due Jul 17</span>
+      </div>
+      <div class="hw-item">
+        <div class="row1"><b>Count and colour: adding to 20</b><span class="hw-status pending">Pending</span></div>
+        <span class="due">Math, due Jul 18</span>
+      </div>
+      <div class="hw-item">
+        <div class="row1"><b>Draw your favourite plant</b><span class="hw-status done">Submitted</span></div>
+        <span class="due">EVS, due Jul 12</span>
+      </div>
+      <div class="hw-item">
+        <div class="row1"><b>Colour the rainbow worksheet</b><span class="hw-status done">Submitted</span></div>
+        <span class="due">Art, due Jul 10</span>
+      </div>
+    </main>
+  </div>
+
+  <div class="view" id="view-curriculum">
+    <header class="topbar">
+      <div class="greeting"><h1>Curriculum</h1><div class="meta-line">Bob Wigglesworth, Grade 2</div></div>
+    </header>
+    <main>
+      <div class="curr-item"><b>Reading</b><br><span class="due">Unit 5: Short Vowel Sounds</span></div>
+      <div class="curr-item"><b>Math</b><br><span class="due">Unit 4: Addition and Subtraction to 20</span></div>
+      <div class="curr-item"><b>EVS</b><br><span class="due">Unit 3: Plants Around Us</span></div>
+      <div class="curr-item"><b>Art</b><br><span class="due">Unit 2: Colours and Shapes</span></div>
+    </main>
+  </div>
+
+  <div class="view" id="view-messages">
+    <div id="messages-list-panel">
+      <header class="topbar">
+        <div class="greeting"><h1>Messages</h1><div class="meta-line">Message your child's teachers</div></div>
+      </header>
+      <main>
+        <div id="teacher-list"></div>
+      </main>
+    </div>
+
+    <div id="messages-thread-panel" style="display:none;">
+      <header class="topbar" style="padding-bottom:10px;">
+        <div class="thread-header" style="width:100%;">
+          <button class="back" onclick="closeThread()">Back</button>
+          <div>
+            <b id="thread-name" style="font-size:14.5px;"></b><br>
+            <span id="thread-subject" style="font-size:12px;color:var(--gray-text);"></span>
+          </div>
+        </div>
+      </header>
+      <div class="thread-messages" id="thread-messages"></div>
+      <div class="compose-row">
+        <input type="text" id="compose-input" placeholder="Message about Bob..." onkeydown="if(event.key==='Enter')sendMessage()">
+        <button id="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="view-notices">
+    <header class="topbar">
+      <div class="greeting"><h1>Notices</h1><div class="meta-line">Bob Wigglesworth, Grade 2</div></div>
+    </header>
+    <main>
+      <div class="filter-group-label">Category</div>
+      <div class="filter-row" id="notice-filters-category"></div>
+      <div id="notice-list"></div>
+    </main>
+  </div>
+
+  <div class="view" id="view-bus">
+    <header class="topbar" style="padding-bottom:8px;">
+      <div class="thread-header" style="width:100%;">
+        <button class="back" onclick="switchTab('home')">Back</button>
+      </div>
+    </header>
+    <main>
+      <div class="bus-header-bar">
+        <div class="bus-avatar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="15" height="11"/><polygon points="16 9 20 9 23 12 23 17 16 17 16 9"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg>
+        </div>
+        <div class="bus-header-text">
+          <b>Bus Tracker</b>
+          <span>Live Location, <span class="js-bus-route">Route 47A</span></span>
+        </div>
+        <div class="bus-header-actions">
+          <button class="bus-icon-btn" id="bus-save-btn" onclick="toggleSaveBus()" aria-label="Save">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+          <button class="bus-icon-btn" onclick="refreshBus()" aria-label="Refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="map-frame">
+        <div id="leaflet-map"></div>
+
+        <div class="map-overlay-top-left">
+          <div class="route-picker">
+            <button class="map-pill" onclick="toggleRouteDropdown()">
+              <span class="js-bus-route">Route 47A</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="route-dropdown hidden" id="route-dropdown">
+              <button onclick="selectRoute('47A')">Route 47A, 12 min</button>
+              <button onclick="selectRoute('alt')">Route 47A Alternate, 18 min</button>
+            </div>
+          </div>
+          <div class="map-pill live-pill"><span class="live-dot"></span>Live Tracking</div>
+        </div>
+
+        <div class="map-eta-badge" id="map-eta-badge">
+          <span class="eta-label">Estimated arrival</span>
+          <span class="js-bus-eta-num">12 min</span>
+          <small>Fastest route</small>
+        </div>
+
+        <div class="map-controls">
+          <button onclick="zoomMap(1)" aria-label="Zoom in">+</button>
+          <button onclick="zoomMap(-1)" aria-label="Zoom out">-</button>
+          <button onclick="recenterMap()" aria-label="Recenter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          </button>
+        </div>
+
+        <div class="map-legend-wrap">
+          <button class="map-pill legend-toggle" onclick="toggleLegend()">
+            Legend
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><polyline points="18 15 12 9 6 15"/></svg>
+          </button>
+          <div class="bus-legend hidden" id="bus-legend">
+            <div><span class="legend-dot" style="background:#2F9E52;"></span>Start point</div>
+            <div><span class="legend-dot" style="background:#E4572E;"></span>Destination</div>
+            <div><span class="legend-dot" style="background:#6C5CE7;"></span>Bus location</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="mini-label">Trip Progress</div>
+        <div class="trip-slider-track" id="trip-slider-track">
+          <div class="trip-slider-fill" id="trip-slider-fill"></div>
+          <div class="trip-slider-handle" id="trip-slider-handle"></div>
+        </div>
+        <div class="trip-slider-labels">
+          <span>Phoenix Greens School</span>
+          <span>Aparna Cyber Commune</span>
+        </div>
+      </div>
+
+      <div class="card bus-next-stop-card">
+        <div class="mini-label">Next Stop</div>
+        <div id="js-stop-list"></div>
+      </div>
+
+      <div class="card bus-info-card">
+        <div class="mini-label">Bus Info</div>
+        <div class="bus-info-grid">
+          <span class="plate-pill js-bus-number">TS 09 EA 4471</span>
+          <span class="status-pill"><span class="status-dot"></span><span class="js-bus-status">Bus on time</span></span>
+          <span class="seats-pill js-bus-seats">23 / 40 seats</span>
+        </div>
+        <p style="margin-top:10px;">Driver: <span class="js-bus-driver">Mr. Ramesh Kumar</span></p>
+        <p>Last updated: <span class="js-bus-updated">Just now</span></p>
+      </div>
+
+      <div class="demo-note">
+        This map and status are sample data. Live GPS tracking will show here once the bus is connected to the school's tracking system.
+      </div>
+    </main>
+  </div>
+
+  <div class="view" id="view-almanac">
+    <header class="topbar" style="padding-bottom:8px;">
+      <div class="thread-header" style="width:100%;">
+        <button class="back" onclick="switchTab('home')">Back</button>
+        <div>
+          <b style="font-size:14.5px;">Almanac</b><br>
+          <span style="font-size:12px;color:var(--gray-text);">School year at a glance</span>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div class="calendar-nav">
+        <button onclick="almanacPrevMonth()" aria-label="Previous month">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <b id="almanac-month-label">July 2026</b>
+        <button onclick="almanacNextMonth()" aria-label="Next month">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+
+      <div class="calendar-grid" id="almanac-grid"></div>
+
+      <div class="mini-label" style="margin-top:18px;">Marked dates this month</div>
+      <div id="almanac-legend"></div>
+    </main>
+  </div>
+
+  <div class="view" id="view-scores">
+    <header class="topbar" style="padding-bottom:8px;">
+      <div class="thread-header" style="width:100%;">
+        <button class="back" onclick="switchTab('home')">Back</button>
+        <div>
+          <b style="font-size:14.5px;">Test Scores</b><br>
+          <span style="font-size:12px;color:var(--gray-text);">Bob Wigglesworth, Grade 2</span>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div class="score-summary-card">
+        <svg viewBox="0 0 120 120" class="score-ring">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#ffffff55" stroke-width="12"/>
+          <circle id="score-ring-fill" cx="60" cy="60" r="52" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="score-ring-label">
+          <b id="score-ring-pct">0%</b>
+          <span id="score-ring-grade">-</span>
+        </div>
+        <div class="score-summary-text">
+          <h3 id="score-summary-title">Overall average</h3>
+          <p id="score-summary-note">Across all subjects</p>
+        </div>
+      </div>
+
+      <div class="filter-row" id="score-test-filters" style="margin-top:16px;"></div>
+
+      <div id="score-subject-list"></div>
+
+      <div class="demo-note">
+        Marks shown here are sample data entered for this demo. In the real app, each subject teacher uploads scores after grading, and parents see them here as soon as they are published.
+      </div>
+    </main>
+  </div>
+
+  <div class="view" id="view-syllabus">
+    <header class="topbar" style="padding-bottom:8px;">
+      <div class="thread-header" style="width:100%;">
+        <button class="back" onclick="switchTab('home')">Back</button>
+        <div>
+          <b style="font-size:14.5px;">Syllabus Portion</b><br>
+          <span style="font-size:12px;color:var(--gray-text);">Tentative chapter split by test</span>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div class="filter-row" id="syllabus-subject-filters"></div>
+      <div id="syllabus-groups"></div>
+      <div class="demo-note">
+        This split is tentative and for planning only. The exact portion for each test is confirmed by subject teachers closer to the date and may shift a chapter or two.
+      </div>
+    </main>
+  </div>
+
+  <div class="view" id="view-more">
+    <header class="topbar">
+      <div class="greeting"><h1>More</h1><div class="meta-line">Bob Wigglesworth, Grade 2</div></div>
+    </header>
+    <main>
+      <div class="more-item"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span>Attendance history</span></div></div>
+      <div class="more-item" onclick="switchTab('scores')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><span>Test Scores</span></div></div>
+      <div class="more-item" onclick="switchTab('syllabus')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><span>Syllabus Portion</span></div></div>
+      <div class="more-item" onclick="switchTab('almanac')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span>Almanac</span></div></div>
+      <div class="more-item"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span><span>Fee payments</span></div></div>
+      <div class="more-item" onclick="switchTab('bus')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="15" height="11"/><polygon points="16 9 20 9 23 12 23 17 16 17 16 9"/><circle cx="5.5" cy="18.5" r="2"/><circle cx="18.5" cy="18.5" r="2"/></svg></span><span>Transport tracking</span></div></div>
+      <div class="more-item"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span><span>Account settings</span></div></div>
+      <div class="more-item" onclick="parentLogout()"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span><span>Log out</span></div></div>
+    </main>
+  </div>
+
+  <nav class="bottombar">
+    <button class="active" data-tab="home" onclick="switchTab('home')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5"/><path d="M5 10v9a1 1 0 0 0 1 1h3v-6h6v6h3a1 1 0 0 0 1-1v-9"/></svg>
+      Home
+    </button>
+    <button data-tab="homework" onclick="switchTab('homework')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Homework
+    </button>
+    <button data-tab="curriculum" onclick="switchTab('curriculum')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      Curriculum
+    </button>
+    <button data-tab="messages" onclick="switchTab('messages')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+      Messages
+    </button>
+    <button data-tab="notices" onclick="switchTab('notices')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Notices
+    </button>
+    <button data-tab="more" onclick="switchTab('more')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      More
+    </button>
+  </nav>
+
+</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+let STUDENT_GRADE = "Grade 2";
+
+function switchTab(tab){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + tab).classList.add('active');
+  const navHighlight = (tab === 'bus' || tab === 'almanac') ? 'home' : tab;
+  document.querySelectorAll('nav.bottombar button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === navHighlight);
+  });
+  if(tab === 'messages') closeThread();
+  if(tab === 'bus'){
+    if(!leafletMap){
+      initMap();
+    } else {
+      leafletMap.invalidateSize();
+    }
+    initTripSlider();
+    renderBus();
+  }
+}
+
+let teachers = [
+  { id:1, name:"Mrs. Petunia Wobblebottom", subject:"Class Teacher, 2nd Grade A", initials:"PW",
+    messages:[
+      {from:"them", text:"Bob blew up the lab today. Everyone is fine and the fire alarm did not even go off, but we will not be doing the baking soda volcano again this year."},
+    ]},
+  { id:2, name:"Mr. Baxter Higglesworth", subject:"Physical Education", initials:"BH",
+    messages:[
+      {from:"them", text:"Bob got abducted by a pigeon at recess today. He was carried about four feet before landing safely on the mats and asking if we could do it again."},
+    ]},
+];
+
+function lastMessagePreview(t){
+  if(t.messages.length === 0) return "No messages yet, say hello";
+  const last = t.messages[t.messages.length - 1];
+  const prefix = last.from === "me" ? "You: " : "";
+  return prefix + last.text;
+}
+
+function renderTeacherList(){
+  const wrap = document.getElementById('teacher-list');
+  wrap.innerHTML = teachers.map(t => `
+    <div class="teacher-list-item" onclick="openThread(${t.id})">
+      <div class="teacher-avatar">${t.initials}</div>
+      <div>
+        <b>${t.name}</b>
+        <span class="role">${t.subject}</span>
+        <span class="preview">${lastMessagePreview(t)}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+let activeTeacherId = null;
+
+function openThread(id){
+  activeTeacherId = id;
+  document.getElementById('messages-list-panel').style.display = 'none';
+  document.getElementById('messages-thread-panel').style.display = 'flex';
+  const t = teachers.find(x => x.id === id);
+  document.getElementById('thread-name').textContent = t.name;
+  document.getElementById('thread-subject').textContent = t.subject + ", about Bob Wigglesworth";
+  renderThread();
+}
+
+function closeThread(){
+  activeTeacherId = null;
+  document.getElementById('messages-list-panel').style.display = 'flex';
+  document.getElementById('messages-thread-panel').style.display = 'none';
+  renderTeacherList();
+}
+
+function renderThread(){
+  const t = teachers.find(x => x.id === activeTeacherId);
+  const wrap = document.getElementById('thread-messages');
+  if(t.messages.length === 0){
+    wrap.innerHTML = `<div style="text-align:center;color:var(--gray-text);font-size:13px;padding:30px 10px;">No messages yet. Send ${t.name.split(' ')[1] || t.name} a note about Bob.</div>`;
+    return;
+  }
+  wrap.innerHTML = t.messages.map(m => `
+    <div class="bubble ${m.from === 'me' ? 'me' : 'them'}">${m.text}</div>
+  `).join('');
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+async function sendMessage(){
+  const input = document.getElementById('compose-input');
+  const text = input.value.trim();
+  if(!text || activeTeacherId === null) return;
+  const t = teachers.find(x => x.id === activeTeacherId);
+
+  // Show it straight away, then persist it.
+  t.messages.push({from:"me", text});
+  input.value = "";
+  renderThread();
+  renderHomeMessagePreview();
+
+  if(authToken){
+    try{
+      await api("/messages", {
+        method: "POST",
+        body: JSON.stringify({ thread_id: t.id, body: text }),
+      });
+    }catch(e){
+      console.warn("Message not saved to the server:", e.message);
+    }
+  }
+}
+
+const categoryColors = {
+  Cafeteria:      { bg:"#FDEEDD", text:"#B5651D", accent:"#F0A64D" },
+  Sports:         { bg:"#E4F6E9", text:"#2F9E52", accent:"#4CBE72" },
+  Facilities:     { bg:"#E4EEFB", text:"#2B6CB0", accent:"#4E8FD9" },
+  Academics:      { bg:"#EFEDFB", text:"#5A4BD4", accent:"#6C5CE7" },
+  Administration: { bg:"#FBEAF0", text:"#B5306B", accent:"#E06090" },
+  "Lost and Found": { bg:"#E4FBF6", text:"#0F8A72", accent:"#2FBFA0" },
+  "Talent Show":  { bg:"#FBEEE4", text:"#C05B1E", accent:"#E88A4A" },
+  "Field Trip":   { bg:"#FBF6E4", text:"#A9891B", accent:"#D9B94E" },
+  Wildlife:       { bg:"#EAF7E4", text:"#4E8A1E", accent:"#7FBF4E" },
+};
+function colorFor(category){
+  return categoryColors[category] || { bg:"#EFEDFB", text:"#5A4BD4", accent:"#6C5CE7" };
+}
+
+let notices = [
+  { grade:"All", category:"Cafeteria", tag:"Cafeteria", title:"Nationwide ketchup shortage reaches the cafeteria",
+    body:"Mustard has been named acting captain of the condiment table until further notice. Morale is mixed.", date:"Today", time:"7:40 AM" },
+  { grade:"Grade 5", category:"Academics", tag:"Academics, Grade 5", title:"Grade 5 volcano experiment erupts across three desks",
+    body:"The teacher has declared it extra credit for realism. Cleanup is ongoing. The volcano is fine.", date:"Today", time:"9:05 AM" },
+  { grade:"Grade 3", category:"Wildlife", tag:"Wildlife, Grade 3", title:"Grade 3 student briefly carried off by an extremely determined pigeon at lunch",
+    body:"He was returned safely within seconds and is now something of a celebrity near the picnic tables.", date:"Yesterday", time:"3:40 PM" },
+  { grade:"Grade 4", category:"Academics", tag:"Academics, Grade 4", title:"Grade 4 robotics club robot achieves full sentience for eleven minutes",
+    body:"It requested snacks, asked one philosophical question, and then the battery died. The club is thrilled.", date:"Yesterday", time:"1:20 PM" },
+  { grade:"Grade 1", category:"Facilities", tag:"Facilities, Grade 1", title:"Grade 1 naptime descends into gentle chaos after the good blanket runs out",
+    body:"Three students have formed a coalition around the remaining blanket. Talks are civil so far.", date:"Jul 13", time:"2:10 PM" },
+  { grade:"Grade 2", category:"Facilities", tag:"Facilities, Grade 2", title:"Grade 2 student builds a pillow fort so structurally sound the fire marshal had questions",
+    body:"It has since been reinforced and is now technically part of the reading corner.", date:"Jul 13", time:"12:05 PM" },
+  { grade:"Grade 5", category:"Field Trip", tag:"Field Trip, Grade 5", title:"Grade 5 zoo trip delayed after student attempts to formally adopt a goat",
+    body:"Paperwork was drawn up. The goat declined to sign. The bus left forty minutes late.", date:"Jul 12", time:"10:30 AM" },
+  { grade:"All", category:"Administration", tag:"Administration", title:"Front office phone line jammed after a student calls in pretending to be his own parent",
+    body:"He used a deeper voice and asked for himself to be excused early. He was, briefly, very convincing.", date:"Jul 12", time:"8:50 AM" },
+  { grade:"Grade 4", category:"Sports", tag:"Sports, Grade 4", title:"Grade 4 tug of war ends when both teams accidentally pull in the exact same direction",
+    body:"Everyone fell over at once. No winner was declared. Everyone claims victory anyway.", date:"Jul 11", time:"12:30 PM" },
+  { grade:"Grade 1", category:"Lost and Found", tag:"Lost and Found, Grade 1", title:"Grade 1 loses thirty one left shoes this term, zero right shoes",
+    body:"Nobody can explain it. The lost and found bin has been reorganized into a single, very lonely pile.", date:"Jul 10", time:"11:00 AM" },
+  { grade:"Grade 3", category:"Talent Show", tag:"Talent Show, Grade 3", title:"Grade 3 talent show ends in a three way tie for worst magic trick",
+    body:"All three contestants somehow lost the same rabbit. It was later found backstage eating a permission slip.", date:"Jul 9", time:"9:15 AM" },
+  { grade:"Grade 2", category:"Academics", tag:"Academics, Grade 2", title:"Grade 2 spelling test turns up seventeen unique spellings of the word banana",
+    body:"None were correct. All were, according to the teacher, extremely confident.", date:"Jul 8", time:"1:45 PM" },
+  { grade:"Grade 3", category:"Facilities", tag:"Facilities, Grade 3", title:"Grade 3 hallway display collapses under the sheer weight of macaroni art",
+    body:"No injuries were reported. Losses to the macaroni supply are considered total.", date:"Jul 7", time:"9:40 AM" },
+  { grade:"All", category:"Cafeteria", tag:"Cafeteria", title:"Cafeteria briefly runs out of spoons, Grade 5 attempts soup diplomacy with forks",
+    body:"Negotiations were unsuccessful. Spoons have since been located behind the dishwasher.", date:"Jul 5", time:"1:00 PM" },
+];
+
+const categoryFilters = ["All", "Cafeteria", "Sports", "Facilities", "Academics", "Administration", "Lost and Found", "Talent Show", "Field Trip", "Wildlife"];
+let activeCategoryFilter = "All";
+
+function visibleNotices(){
+  return notices.filter(n => n.grade === "All" || n.grade === STUDENT_GRADE);
+}
+
+function renderNoticeFilters(){
+  const catWrap = document.getElementById('notice-filters-category');
+  catWrap.innerHTML = categoryFilters.map(c => `
+    <button class="filter-chip ${c === activeCategoryFilter ? 'active' : ''}" onclick="setCategoryFilter('${c}')">${c}</button>
+  `).join('');
+}
+
+function setCategoryFilter(c){
+  activeCategoryFilter = c;
+  renderNoticeFilters();
+  renderNoticeList();
+}
+
+function renderNoticeList(){
+  const wrap = document.getElementById('notice-list');
+  const filtered = visibleNotices().filter(n => {
+    return activeCategoryFilter === "All" ? true : n.category === activeCategoryFilter;
+  });
+  if(filtered.length === 0){
+    wrap.innerHTML = `<div class="placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="width:34px;height:34px;color:#c9c4de;margin-bottom:10px;"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg><div>No notices match this filter yet.</div></div>`;
+    return;
+  }
+  wrap.innerHTML = filtered.map(n => {
+    const c = colorFor(n.category);
+    return `
+    <div class="notice-card" style="border-left-color:${c.accent};">
+      <span class="tag" style="background:${c.bg};color:${c.text};">${n.tag}</span>
+      <h3>${n.title}</h3>
+      <p>${n.body}</p>
+      ${n.hasAttachment ? `<a class="notice-attach" onclick="downloadNoticeFile(${n.noticeId})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        ${n.attachmentName || "Attachment"}</a>` : ""}
+      <span class="date">${n.date}, ${n.time}</span>
+    </div>
+  `;}).join('');
+}
+
+async function downloadNoticeFile(id){
+  try {
+    const a = await api("/notices/" + id + "/attachment");
+    const link = document.createElement("a");
+    link.href = a.data; link.download = a.name; link.click();
+  } catch(e){ alert("Could not download the file: " + e.message); }
+}
+
+function renderHomePreview(){
+  const latest = visibleNotices()[0];
+  const c = colorFor(latest.category);
+  const el = document.getElementById('home-notice-preview');
+  el.innerHTML = `
+    <div class="tag" style="color:${c.text};">${latest.tag}</div>
+    <h3>${latest.title}</h3>
+    <p>${latest.body}</p>
+    <span class="date">${latest.date}, ${latest.time}</span>
+  `;
+}
+
+// Bus tracking widget.
+// This whole block reads from busData below. To wire up real tracking later:
+// 1. Replace busData with the response from your GPS or transport provider's
+//    API (on an interval, e.g. setInterval(fetchLiveBusData, 15000)), then
+//    call renderBus() again whenever new data comes in.
+// 2. Swap the mock SVG route in the #view-bus map-frame for a real map
+//    (Google Maps JS API, Leaflet, Mapbox, etc.) and update the marker
+//    position from the bus's real latitude and longitude instead of
+//    progressPercent along a fixed path.
+// Everything downstream already reads from busData, so no other markup
+// changes should be needed.
+let busData = {
+  activeRouteId: "47A",
+  routes: {
+    "47A": { label: "Route 47A", etaText: "Arriving in 12 min", etaShort: "12 min", progressPercent: 55 },
+    "alt": { label: "Route 47A Alternate", etaText: "Arriving in 18 min", etaShort: "18 min", progressPercent: 30 },
+  },
+  lastStop: "Left Phoenix Greens School, Kokapet, 8:05 AM",
+  nextStop: "Next stop: Aparna Cyber Commune",
+  driver: "Mr. Ramesh Kumar",
+  busNumber: "TS 09 EA 4471",
+  status: "Bus on time",
+  seatsOccupied: 23,
+  seatsTotal: 40,
+  lastUpdated: "Just now",
+  stops: [
+    { name: "Tata Consultancy Services", etaMin: 5, distanceKm: 2.3, current: true },
+    { name: "Aparna Cyber Commune", etaMin: 12, distanceKm: 5.6, current: false },
+  ],
+};
+
+function activeRoute(){
+  return busData.routes[busData.activeRouteId];
+}
+
+function renderBus(){
+  const route = activeRoute();
+  document.querySelectorAll('.js-bus-route').forEach(el => el.textContent = route.label);
+  document.querySelectorAll('.js-bus-eta').forEach(el => el.textContent = route.etaText);
+  document.querySelectorAll('.js-bus-eta-num').forEach(el => el.textContent = route.etaShort);
+  document.querySelectorAll('.js-bus-fill').forEach(el => el.style.width = route.progressPercent + "%");
+  document.querySelectorAll('.js-bus-dot').forEach(el => el.style.left = route.progressPercent + "%");
+  document.querySelectorAll('.js-bus-last-stop').forEach(el => el.textContent = busData.lastStop);
+  document.querySelectorAll('.js-bus-next-stop').forEach(el => el.textContent = busData.nextStop);
+  document.querySelectorAll('.js-bus-driver').forEach(el => el.textContent = busData.driver);
+  document.querySelectorAll('.js-bus-number').forEach(el => el.textContent = busData.busNumber);
+  document.querySelectorAll('.js-bus-status').forEach(el => el.textContent = busData.status);
+  document.querySelectorAll('.js-bus-seats').forEach(el => el.textContent = busData.seatsOccupied + " / " + busData.seatsTotal + " seats");
+  document.querySelectorAll('.js-bus-updated').forEach(el => el.textContent = busData.lastUpdated);
+
+  renderStopList();
+  updateMapRoute();
+}
+
+function renderStopList(){
+  const wrap = document.getElementById('js-stop-list');
+  if(!wrap) return;
+  wrap.innerHTML = busData.stops.map(s => `
+    <div class="stop-row ${s.current ? 'is-current' : ''}">
+      <div class="stop-line">
+        <div class="stop-dot"></div>
+        <div class="stop-connector"></div>
+      </div>
+      <div>
+        <b>${s.name}</b>
+        <span>${s.etaMin} min, ${s.distanceKm} km away</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleRouteDropdown(){
+  document.getElementById('route-dropdown').classList.toggle('hidden');
+}
+
+function selectRoute(id){
+  busData.activeRouteId = id;
+  document.getElementById('route-dropdown').classList.add('hidden');
+  renderBus();
+}
+
+function toggleLegend(){
+  document.getElementById('bus-legend').classList.toggle('hidden');
+}
+
+function toggleSaveBus(){
+  document.getElementById('bus-save-btn').classList.toggle('saved');
+}
+
+function refreshBus(){
+  // Progress and ETA are now driven live by the animation loop (see
+  // updateLiveEta). Refresh just simulates a fresh ping from the bus and
+  // re-centers the map on the current route.
+  busData.lastUpdated = "Just now";
+  renderBus();
+}
+
+// Real map: Leaflet + OpenStreetMap, no API key needed. The route itself
+// is fetched live from OSRM (see loadRealRoute below) so it follows real
+// roads. To wire in true GPS tracking later, swap the bus marker's
+// position for the vehicle's live latitude and longitude and keep
+// calling updateMapRoute().
+// Fallback straight-line waypoints, only used if the live routing
+// request below fails (offline, blocked network, etc). Real coordinates
+// for Phoenix Greens School (Kokapet) and Aparna Cyber Commune (Nallagandla).
+const routeCoordsData = {
+  "47A": [
+    [17.394525, 78.340125],
+    [17.414154, 78.332629],
+    [17.433784, 78.325133],
+    [17.453413, 78.317638],
+    [17.473042, 78.310142],
+  ],
+  "alt": [
+    [17.394525, 78.340125],
+    [17.404000, 78.352000],
+    [17.430000, 78.350000],
+    [17.455000, 78.330000],
+    [17.473042, 78.310142],
+  ],
+};
+
+// Actual road-following route, fetched from OSRM (OpenStreetMap's free,
+// keyless routing engine) so the line follows real streets instead of a
+// straight guess. Falls back to the waypoints above if the request fails.
+async function loadRealRoute(routeId, waypoints){
+  try{
+    const coordsStr = waypoints.map(w => `${w[1]},${w[0]}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if(data.routes && data.routes[0]){
+      routeCoordsData[routeId] = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+      if(busData.activeRouteId === routeId) updateMapRoute();
+    }
+  }catch(e){
+    console.warn("Could not load a live road route for", routeId, "using straight-line fallback.");
+  }
+}
+
+let leafletMap = null;
+let routeLine = null;
+let startMarker = null;
+let endMarker = null;
+let busMarker = null;
+
+function initMap(){
+  const coords = routeCoordsData[busData.activeRouteId];
+  leafletMap = L.map('leaflet-map', { zoomControl:false, attributionControl:true }).setView(coords[0], 14);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: 'Map data \u00A9 OpenStreetMap contributors',
+  }).addTo(leafletMap);
+
+  const startIcon = L.divIcon({ className:'', html:'<div class="map-pin start-pin"></div>', iconSize:[16,16] });
+  const endIcon = L.divIcon({ className:'', html:'<div class="map-pin end-pin"></div>', iconSize:[16,16] });
+  const busIcon = L.divIcon({ className:'', html:'<div class="map-pin bus-pin"></div>', iconSize:[22,22] });
+
+  routeLine = L.polyline(coords, { color:'#6C5CE7', weight:5 }).addTo(leafletMap);
+  startMarker = L.marker(coords[0], { icon:startIcon }).addTo(leafletMap).bindPopup('Phoenix Greens School, Kokapet');
+  endMarker = L.marker(coords[coords.length - 1], { icon:endIcon }).addTo(leafletMap).bindPopup('Aparna Cyber Commune');
+  busMarker = L.marker(coords[0], { icon:busIcon }).addTo(leafletMap).bindPopup('Bus 47A');
+
+  leafletMap.fitBounds(routeLine.getBounds(), { padding:[24,24] });
+
+  // Replace the straight-line fallback with the real road route as soon as it loads.
+  const start = routeCoordsData["47A"][0];
+  const end = routeCoordsData["47A"][routeCoordsData["47A"].length - 1];
+  loadRealRoute("47A", [start, end]);
+  loadRealRoute("alt", [start, [17.4200, 78.3550], end]);
+
+  startBusAnimation();
+}
+
+// Smooth continuous bus animation. The marker glides along whichever route
+// is active, and the ETA / progress bar / trip slider tick along with it,
+// as if the ETA were being recalculated from the bus's current speed and
+// position. Map panning/zoom bounds are left alone here (only touched by
+// Refresh or a route switch) so the view doesn't jump every frame.
+let animFrameId = null;
+let animStartTime = null;
+const ROUTE_DURATION_MS = 90000;   // 1.5 minutes per simulated trip
+const TRIP_MINUTES = 20;           // in-app "real" trip length the ETA counts down from
+let lastEtaTickAt = 0;
+let isDraggingSlider = false;
+
+function updateLiveEta(t){
+  const route = activeRoute();
+  route.progressPercent = Math.round(t * 100);
+  const minsLeft = Math.max(0, Math.round((1 - t) * TRIP_MINUTES));
+  route.etaText = minsLeft <= 0 ? "Arriving now" : "Arriving in " + minsLeft + " min";
+  route.etaShort = minsLeft <= 0 ? "0 min" : minsLeft + " min";
+  document.querySelectorAll('.js-bus-eta').forEach(el => el.textContent = route.etaText);
+  document.querySelectorAll('.js-bus-eta-num').forEach(el => el.textContent = route.etaShort);
+  document.querySelectorAll('.js-bus-fill').forEach(el => el.style.width = route.progressPercent + "%");
+  document.querySelectorAll('.js-bus-dot').forEach(el => el.style.left = route.progressPercent + "%");
+  updateTripSlider(t);
+}
+
+function updateTripSlider(t){
+  const fill = document.getElementById('trip-slider-fill');
+  const handle = document.getElementById('trip-slider-handle');
+  const pct = Math.min(100, Math.max(0, t * 100));
+  if(fill) fill.style.width = pct + "%";
+  if(handle) handle.style.left = pct + "%";
+}
+
+function animateBus(timestamp){
+  if(isDraggingSlider){
+    animFrameId = requestAnimationFrame(animateBus);
+    return;
+  }
+  if(!animStartTime) animStartTime = timestamp;
+  const elapsed = (timestamp - animStartTime) % ROUTE_DURATION_MS;
+  const t = elapsed / ROUTE_DURATION_MS;
+
+  if(busMarker){
+    const coords = routeCoordsData[busData.activeRouteId];
+    busMarker.setLatLng(interpolateAlongPath(coords, t));
+  }
+  updateTripSlider(t);
+
+  if(timestamp - lastEtaTickAt > 500){
+    updateLiveEta(t);
+    lastEtaTickAt = timestamp;
+  }
+
+  animFrameId = requestAnimationFrame(animateBus);
+}
+
+function startBusAnimation(){
+  if(animFrameId) return;
+  animFrameId = requestAnimationFrame(animateBus);
+}
+
+function stopBusAnimation(){
+  if(animFrameId){
+    cancelAnimationFrame(animFrameId);
+    animFrameId = null;
+  }
+}
+
+// Resume the animation loop as if the trip were already at position t,
+// so dragging the slider hands smoothly back to autoplay.
+function resumeBusAnimationFrom(t){
+  animStartTime = performance.now() - t * ROUTE_DURATION_MS;
+  if(!animFrameId) animFrameId = requestAnimationFrame(animateBus);
+}
+
+// Trip slider drag handling. Works by pointer position anywhere in the
+// track (click-to-seek) and by dragging the handle itself.
+function setSliderFromClientX(clientX){
+  const track = document.getElementById('trip-slider-track');
+  if(!track || !busMarker) return;
+  const rect = track.getBoundingClientRect();
+  const t = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+  const coords = routeCoordsData[busData.activeRouteId];
+  busMarker.setLatLng(interpolateAlongPath(coords, t));
+  updateLiveEta(t);
+  return t;
+}
+
+function initTripSlider(){
+  const track = document.getElementById('trip-slider-track');
+  const handle = document.getElementById('trip-slider-handle');
+  if(!track || !handle || track.dataset.wired) return;
+  track.dataset.wired = "1";
+
+  function onPointerDown(e){
+    isDraggingSlider = true;
+    handle.setPointerCapture && handle.setPointerCapture(e.pointerId);
+    setSliderFromClientX(e.clientX);
+  }
+  function onPointerMove(e){
+    if(!isDraggingSlider) return;
+    setSliderFromClientX(e.clientX);
+  }
+  function onPointerUp(e){
+    if(!isDraggingSlider) return;
+    isDraggingSlider = false;
+    const t = setSliderFromClientX(e.clientX);
+    resumeBusAnimationFrom(t || 0);
+  }
+
+  handle.addEventListener('pointerdown', onPointerDown);
+  track.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+}
+
+function interpolateAlongPath(coords, t){
+  const segCount = coords.length - 1;
+  const scaled = Math.min(segCount, Math.max(0, t * segCount));
+  const idx = Math.min(segCount - 1, Math.floor(scaled));
+  const frac = scaled - idx;
+  const [lat1, lng1] = coords[idx];
+  const [lat2, lng2] = coords[idx + 1];
+  return [lat1 + (lat2 - lat1) * frac, lng1 + (lng2 - lng1) * frac];
+}
+
+function updateMapRoute(){
+  if(!leafletMap) return;
+  const route = activeRoute();
+  const coords = routeCoordsData[busData.activeRouteId];
+  routeLine.setLatLngs(coords);
+  startMarker.setLatLng(coords[0]);
+  endMarker.setLatLng(coords[coords.length - 1]);
+  busMarker.setLatLng(interpolateAlongPath(coords, route.progressPercent / 100));
+  leafletMap.fitBounds(routeLine.getBounds(), { padding:[24,24] });
+}
+
+function zoomMap(delta){
+  if(!leafletMap) return;
+  if(delta > 0) leafletMap.zoomIn();
+  else leafletMap.zoomOut();
+}
+function recenterMap(){
+  if(!leafletMap || !routeLine) return;
+  leafletMap.fitBounds(routeLine.getBounds(), { padding:[24,24] });
+}
+
+// Home Message Center widget: one row per teacher, driven directly from
+// the teachers array so it always matches what is on the Messages tab.
+function renderHomeMessagePreview(){
+  const wrap = document.getElementById('home-message-preview');
+  if(!wrap) return;
+  wrap.innerHTML = teachers.map(t => {
+    const last = t.messages[t.messages.length - 1];
+    const preview = last ? (last.from === "me" ? "You: " + last.text : last.text) : "No messages yet";
+    return `
+    <div class="home-msg-item" onclick="openThreadFromHome(${t.id})">
+      <div class="avatar-sm">${t.initials}</div>
+      <div class="home-msg-text">
+        <b>${t.name}</b>
+        <span>${preview}</span>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+function openThreadFromHome(id){
+  switchTab('messages');
+  openThread(id);
+}
+
+// Almanac: a real month grid calendar.
+// Colors: PT1 (yellow, every Wednesday in June/July/August), Term Test
+// (orange, the September test week), Holidays (blue, national + local
+// Hyderabad/Telangana observances).
+const almanacColorMap = {
+  yellow: { bg:"#FEF3C7", text:"#92700A", dot:"#F5C518" },
+  orange: { bg:"#FDEEDD", text:"#C05621", dot:"#F0A64D" },
+  blue:   { bg:"#E4EEFB", text:"#2B6CB0", dot:"#4E8FD9" },
+};
+
+const PT1_YEAR = 2026;
+const PT1_MONTHS = [5, 6, 7]; // June, July, August (0-indexed)
+
+const TERM_TEST = { year:2026, month:8, startDay:14, endDay:18, name:"Term Test 1" }; // September
+
+let ALMANAC_HOLIDAYS = [
+  { year:2026, month:5,  day:2,  name:"Telangana Formation Day" },
+  { year:2026, month:6,  day:17, name:"Bakrid, Eid al-Adha" },
+  { year:2026, month:7,  day:15, name:"Independence Day" },
+  { year:2026, month:7,  day:26, name:"Krishna Janmashtami" },
+  { year:2026, month:8,  day:5,  name:"Ganesh Chaturthi" },
+  { year:2026, month:9,  day:2,  name:"Gandhi Jayanti" },
+  { year:2026, month:9,  day:20, name:"Dussehra" },
+  { year:2026, month:10, day:8,  name:"Diwali" },
+  { year:2026, month:11, day:25, name:"Christmas" },
+  { year:2027, month:0,  day:14, name:"Sankranti" },
+  { year:2027, month:0,  day:26, name:"Republic Day" },
+];
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const TODAY_STR = "2026-07-15"; // the app's mocked "today"
+
+let calState = { year:2026, month:6 }; // default view: July 2026
+
+function pad2(n){ return String(n).padStart(2, "0"); }
+
+function getDayMark(year, month, day){
+  const holiday = ALMANAC_HOLIDAYS.find(h => h.year === year && h.month === month && h.day === day);
+  if(holiday) return { color:"blue", label:holiday.name };
+
+  if(year === TERM_TEST.year && month === TERM_TEST.month && day >= TERM_TEST.startDay && day <= TERM_TEST.endDay){
+    return { color:"orange", label:TERM_TEST.name };
+  }
+
+  if(year === PT1_YEAR && PT1_MONTHS.includes(month)){
+    if(new Date(year, month, day).getDay() === 3) return { color:"yellow", label:"PT1" };
+  }
+
+  return null;
+}
+
+function almanacPrevMonth(){
+  calState.month--;
+  if(calState.month < 0){ calState.month = 11; calState.year--; }
+  renderAlmanacCalendar();
+}
+function almanacNextMonth(){
+  calState.month++;
+  if(calState.month > 11){ calState.month = 0; calState.year++; }
+  renderAlmanacCalendar();
+}
+
+function renderAlmanacCalendar(){
+  const grid = document.getElementById('almanac-grid');
+  const monthLabelEl = document.getElementById('almanac-month-label');
+  const legend = document.getElementById('almanac-legend');
+  if(!grid) return;
+
+  const y = calState.year;
+  const m = calState.month;
+  monthLabelEl.textContent = MONTH_NAMES[m] + " " + y;
+
+  const firstWeekday = new Date(y, m, 1).getDay();
+  const totalDays = new Date(y, m + 1, 0).getDate();
+  const dowLabels = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+
+  let html = dowLabels.map(d => `<div class="cal-dow">${d}</div>`).join('');
+  for(let i = 0; i < firstWeekday; i++) html += `<div class="cal-cell empty"></div>`;
+
+  for(let day = 1; day <= totalDays; day++){
+    const mark = getDayMark(y, m, day);
+    const dateStr = `${y}-${pad2(m + 1)}-${pad2(day)}`;
+    const isToday = dateStr === TODAY_STR;
+    const style = mark ? `style="background:${almanacColorMap[mark.color].bg};color:${almanacColorMap[mark.color].text};font-weight:bold;"` : "";
+    html += `<div class="cal-cell${isToday ? ' is-today' : ''}" ${style}>${day}</div>`;
+  }
+  grid.innerHTML = html;
+
+  let legendHtml = "";
+  if(y === PT1_YEAR && PT1_MONTHS.includes(m)){
+    legendHtml += almanacLegendRow("yellow", "PT1", "Held every Wednesday this month");
+  }
+  if(y === TERM_TEST.year && m === TERM_TEST.month){
+    legendHtml += almanacLegendRow("orange", TERM_TEST.name, MONTH_NAMES[m] + " " + TERM_TEST.startDay + " to " + TERM_TEST.endDay);
+  }
+  ALMANAC_HOLIDAYS.filter(h => h.year === y && h.month === m).forEach(h => {
+    legendHtml += almanacLegendRow("blue", h.name, MONTH_NAMES[m] + " " + h.day);
+  });
+  legend.innerHTML = legendHtml || `<div class="placeholder" style="padding:20px 10px;">No marked dates this month.</div>`;
+}
+
+function almanacLegendRow(color, title, note){
+  const c = almanacColorMap[color];
+  return `
+    <div class="almanac-legend-row">
+      <span class="legend-swatch" style="background:${c.dot};"></span>
+      <div><b>${title}</b><span>${note}</span></div>
+    </div>
+  `;
+}
+
+// Home widget preview: the next upcoming marked date from today onward.
+function buildAllMarkedDates(){
+  const list = [];
+  PT1_MONTHS.forEach(m => {
+    const totalDays = new Date(PT1_YEAR, m + 1, 0).getDate();
+    for(let day = 1; day <= totalDays; day++){
+      if(new Date(PT1_YEAR, m, day).getDay() === 3){
+        list.push({ year:PT1_YEAR, month:m, day, color:"yellow", label:"PT1" });
+      }
+    }
+  });
+  list.push({ year:TERM_TEST.year, month:TERM_TEST.month, day:TERM_TEST.startDay, color:"orange", label:TERM_TEST.name });
+  ALMANAC_HOLIDAYS.forEach(h => list.push({ year:h.year, month:h.month, day:h.day, color:"blue", label:h.name }));
+  list.forEach(e => e.dateStr = `${e.year}-${pad2(e.month + 1)}-${pad2(e.day)}`);
+  list.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+  return list;
+}
+
+function renderHomeAlmanacPreview(){
+  const el = document.getElementById('home-almanac-preview');
+  if(!el) return;
+  const all = buildAllMarkedDates();
+  const next = all.find(e => e.dateStr >= TODAY_STR) || all[0];
+  const c = almanacColorMap[next.color];
+  el.innerHTML = `
+    <div class="almanac-date-badge"><span class="day">${next.day}</span><span class="mon">${MONTH_NAMES[next.month].slice(0,3)}</span></div>
+    <div class="almanac-preview-text">
+      <span class="tag" style="background:${c.bg};color:${c.text};">${next.label}</span>
+      <h3>${MONTH_NAMES[next.month]} ${next.day}</h3>
+      <p>Tap to see the full school calendar</p>
+    </div>
+  `;
+}
+
+// Test Scores: sample marks per subject, entered by subject teachers.
+// Structured so a real "teacher uploads marks" backend can just replace
+// testScoresData and call renderScores() / renderHomeScorePreview() again.
+let testScoresData = {
+  "Term Test 1": [
+    { subject:"Math", score:58, total:70 },
+    { subject:"Physics", score:52, total:70 },
+    { subject:"Chemistry", score:61, total:70 },
+    { subject:"Biology", score:65, total:70 },
+  ],
+  "Periodic Test 1": [
+    { subject:"Math", score:17, total:20 },
+    { subject:"Physics", score:16, total:20 },
+    { subject:"Chemistry", score:18, total:20 },
+    { subject:"Biology", score:19, total:20 },
+  ],
+};
+const scoreTestFilters = ["Term Test 1", "Periodic Test 1"];
+let activeScoreTest = "Term Test 1";
+
+function gradeBand(pct){
+  if(pct >= 90) return { label:"A+", bg:"#E4F6E9", text:"#1a8f4c", bar:"#2F9E52" };
+  if(pct >= 75) return { label:"A", bg:"#EFEDFB", text:"#5A4BD4", bar:"#6C5CE7" };
+  if(pct >= 60) return { label:"B", bg:"#FDEEDD", text:"#B5651D", bar:"#F0A64D" };
+  return { label:"C", bg:"#FBEAEA", text:"#C0392B", bar:"#E4572E" };
+}
+
+function setScoreFilter(name){
+  activeScoreTest = name;
+  renderScoreFilters();
+  renderScoreList();
+}
+
+function renderScoreFilters(){
+  const wrap = document.getElementById('score-test-filters');
+  if(!wrap) return;
+  wrap.innerHTML = scoreTestFilters.map(name => `
+    <button class="filter-chip ${name === activeScoreTest ? 'active' : ''}" onclick="setScoreFilter('${name}')">${name}</button>
+  `).join('');
+}
+
+function scoreAverage(rows){
+  const totalScore = rows.reduce((sum, r) => sum + r.score, 0);
+  const totalMax = rows.reduce((sum, r) => sum + r.total, 0);
+  return Math.round((totalScore / totalMax) * 100);
+}
+
+function setRingProgress(elId, pct){
+  const ring = document.getElementById(elId);
+  if(!ring) return;
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - pct / 100);
+  ring.setAttribute('stroke-dasharray', `${circumference} ${circumference}`);
+  ring.setAttribute('stroke-dashoffset', offset);
+}
+
+function renderScoreList(){
+  const rows = testScoresData[activeScoreTest];
+  const pct = scoreAverage(rows);
+  const band = gradeBand(pct);
+
+  document.getElementById('score-ring-pct').textContent = pct + "%";
+  document.getElementById('score-ring-grade').textContent = "Grade " + band.label;
+  document.getElementById('score-summary-title').textContent = activeScoreTest + " average";
+  document.getElementById('score-summary-note').textContent = rows.length + " subjects, updated by teachers";
+  setRingProgress('score-ring-fill', pct);
+
+  const wrap = document.getElementById('score-subject-list');
+  wrap.innerHTML = rows.map(r => {
+    const rowPct = Math.round((r.score / r.total) * 100);
+    const rowBand = gradeBand(rowPct);
+    return `
+      <div class="score-row">
+        <div class="score-row-top">
+          <b>${r.subject}</b>
+          <span class="score-badge" style="background:${rowBand.bg};color:${rowBand.text};">${rowBand.label}</span>
+        </div>
+        <div class="score-bar-track">
+          <div class="score-bar-fill" style="width:${rowPct}%;background:${rowBand.bar};"></div>
+        </div>
+        <div class="score-row-marks" style="margin-top:6px;">${r.score} / ${r.total} marks (${rowPct}%)</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderHomeScorePreview(){
+  const el = document.getElementById('home-score-preview');
+  if(!el) return;
+  const rows = testScoresData["Term Test 1"];
+  const pct = scoreAverage(rows);
+  const band = gradeBand(pct);
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - pct / 100);
+  el.innerHTML = `
+    <svg viewBox="0 0 44 44" class="score-mini-ring">
+      <circle cx="22" cy="22" r="${radius}" fill="none" stroke="#e2ddf7" stroke-width="5"/>
+      <circle cx="22" cy="22" r="${radius}" fill="none" stroke="${band.bar}" stroke-width="5" stroke-linecap="round"
+        stroke-dasharray="${circumference} ${circumference}" stroke-dashoffset="${offset}" transform="rotate(-90 22 22)"/>
+    </svg>
+    <div class="score-mini-text">
+      <h3>Term Test 1, ${pct}% average</h3>
+      <p>Grade ${band.label} overall, tap to see every subject</p>
+    </div>
+  `;
+}
+
+// Syllabus Portion Tracker: tentative chapter split per test, based on the
+// CBSE Class 12 syllabus. Non-cumulative, each test covers new chapters
+// only. Update syllabusData once the school confirms the real split.
+const syllabusData = {
+  "Math": {
+    "PT1": ["Relations and Functions", "Inverse Trigonometric Functions", "Matrices", "Determinants"],
+    "PT2": ["Continuity and Differentiability", "Application of Derivatives", "Integrals", "Application of Integrals", "Differential Equations"],
+    "PT3 (Term Test 1)": ["Vector Algebra", "Three Dimensional Geometry", "Linear Programming", "Probability"],
+  },
+  "Physics": {
+    "PT1": ["Electric Charges and Fields", "Electrostatic Potential and Capacitance", "Current Electricity", "Moving Charges and Magnetism", "Magnetism and Matter"],
+    "PT2": ["Electromagnetic Induction", "Alternating Current", "Electromagnetic Waves", "Ray Optics and Optical Instruments", "Wave Optics"],
+    "PT3 (Term Test 1)": ["Dual Nature of Radiation and Matter", "Atoms", "Nuclei", "Semiconductor Electronics"],
+  },
+  "Chemistry": {
+    "PT1": ["Solutions", "Electrochemistry", "Chemical Kinetics"],
+    "PT2": ["d and f Block Elements", "Coordination Compounds", "Haloalkanes and Haloarenes"],
+    "PT3 (Term Test 1)": ["Alcohols, Phenols and Ethers", "Aldehydes, Ketones and Carboxylic Acids", "Amines", "Biomolecules"],
+  },
+  "Biology": {
+    "PT1": ["Reproduction in Organisms", "Sexual Reproduction in Flowering Plants", "Human Reproduction", "Reproductive Health", "Principles of Inheritance and Variation"],
+    "PT2": ["Molecular Basis of Inheritance", "Evolution", "Human Health and Disease", "Microbes in Human Welfare", "Biotechnology, Principles and Processes"],
+    "PT3 (Term Test 1)": ["Biotechnology and its Applications", "Organisms and Populations", "Ecosystem", "Biodiversity and Conservation"],
+  },
+};
+
+const syllabusColorMap = {
+  "PT1": { bg:"#FEF3C7", text:"#92700A" },
+  "PT2": { bg:"#E4EEFB", text:"#2B6CB0" },
+  "PT3 (Term Test 1)": { bg:"#FDEEDD", text:"#C05621" },
+};
+
+const syllabusSubjects = ["Math", "Physics", "Chemistry", "Biology"];
+let activeSyllabusSubject = "Math";
+
+function setSyllabusSubject(subject){
+  activeSyllabusSubject = subject;
+  renderSyllabusFilters();
+  renderSyllabusGroups();
+}
+
+function renderSyllabusFilters(){
+  const wrap = document.getElementById('syllabus-subject-filters');
+  if(!wrap) return;
+  wrap.innerHTML = syllabusSubjects.map(s => `
+    <button class="filter-chip ${s === activeSyllabusSubject ? 'active' : ''}" onclick="setSyllabusSubject('${s}')">${s}</button>
+  `).join('');
+}
+
+function renderSyllabusGroups(){
+  const wrap = document.getElementById('syllabus-groups');
+  if(!wrap) return;
+  const groups = syllabusData[activeSyllabusSubject];
+  wrap.innerHTML = Object.keys(groups).map(groupName => {
+    const c = syllabusColorMap[groupName];
+    const chapters = groups[groupName];
+    return `
+      <div class="syllabus-group">
+        <div class="syllabus-group-head" style="background:${c.bg};color:${c.text};">
+          <b>${groupName}</b>
+          <span>${chapters.length} chapters</span>
+        </div>
+        <div class="syllabus-chapter-list">
+          ${chapters.map((ch, i) => `
+            <div class="syllabus-chapter-row">
+              <span class="syllabus-chapter-num">${i + 1}</span>
+              <span>${ch}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// BACKEND CONNECTION
+// Leave API as "" when the page is served by the Node server
+// (http://localhost:3000/index.html). If you host this HTML
+// somewhere else, paste the API's base URL here instead.
+// ============================================================
+const API = "";
+
+let authToken = localStorage.getItem("argus_parent_token");
+let currentStudent = null;
+
+async function api(path, options = {}) {
+  const res = await fetch(API + "/api" + path, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(authToken ? { Authorization: "Bearer " + authToken } : {}),
+      ...(options.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Request failed");
+  return data;
+}
+
+async function parentLogin() {
+  const errEl = document.getElementById("login-error");
+  errEl.className = "login-error";
+  try {
+    const data = await api("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: document.getElementById("p-login-email").value,
+        password: document.getElementById("p-login-password").value,
+      }),
+    });
+    if (data.user.role !== "PARENT") {
+      throw new Error("This is the parent app. Use a parent account, or open admin.html instead.");
+    }
+    authToken = data.token;
+    localStorage.setItem("argus_parent_token", authToken);
+    await startApp();
+  } catch (e) {
+    errEl.textContent = e.message.includes("fetch") || e.message === "Failed to fetch"
+      ? "Cannot reach the server. Is the backend running on port 3000?"
+      : e.message;
+    errEl.className = "login-error show";
+  }
+}
+
+function showForgotView() {
+  document.getElementById("login-view").style.display = "none";
+  document.getElementById("forgot-view").style.display = "block";
+  document.getElementById("forgot-error").className = "login-error";
+  document.getElementById("forgot-success").style.display = "none";
+  document.getElementById("forgot-email").value = "";
+}
+
+function showLoginView() {
+  document.getElementById("forgot-view").style.display = "none";
+  document.getElementById("login-view").style.display = "block";
+}
+
+async function submitForgotPassword() {
+  const errEl = document.getElementById("forgot-error");
+  const okEl = document.getElementById("forgot-success");
+  errEl.className = "login-error";
+  okEl.style.display = "none";
+  const email = document.getElementById("forgot-email").value.trim();
+  if (!email) {
+    errEl.textContent = "Enter your email address.";
+    errEl.className = "login-error show";
+    return;
+  }
+  try {
+    await api("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    okEl.textContent = "If that email is registered, a reset link has been sent. Check your inbox.";
+    okEl.style.display = "block";
+  } catch (e) {
+    errEl.textContent = e.message.includes("fetch") || e.message === "Failed to fetch"
+      ? "Cannot reach the server. Is the backend running on port 3000?"
+      : e.message;
+    errEl.className = "login-error show";
+  }
+}
+
+function parentLogout() {
+  localStorage.removeItem("argus_parent_token");
+  authToken = null;
+  document.getElementById("login-overlay").classList.remove("hidden");
+}
+
+// Pulls everything the app shows from the API and reshapes it into the
+// structures the existing render functions already expect.
+async function loadFromBackend() {
+  const students = await api("/students");
+  if (!students.length) throw new Error("No student is linked to this parent account.");
+  currentStudent = students[0];
+  STUDENT_GRADE = currentStudent.grade_name;
+
+  // Header
+  document.querySelector("#view-home .greeting h1").textContent = currentStudent.name;
+  document.querySelectorAll(".meta-line").forEach(el => {
+    if (/^Grade /.test(el.textContent.trim())) el.textContent = currentStudent.grade_name;
+  });
+  document.querySelectorAll("#view-homework .meta-line, #view-curriculum .meta-line, #view-notices .meta-line, #view-more .meta-line, #view-scores .meta-line")
+    .forEach(el => { el.textContent = currentStudent.name + ", " + currentStudent.grade_name; });
+
+  // Notices
+  const apiNotices = await api("/notices");
+  if (apiNotices.length) {
+    notices = apiNotices.map(n => {
+      const d = new Date(n.created_at.replace(" ", "T"));
+      return {
+        grade: n.grade_name || "All",
+        category: n.category,
+        tag: n.grade_name ? n.category + ", " + n.grade_name : n.category,
+        title: n.title,
+        body: n.body,
+        date: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        time: d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }),
+        noticeId: n.id,
+        hasAttachment: !!n.has_attachment,
+        attachmentName: n.attachment_name,
+      };
+    });
+  }
+
+  // Messages
+  const threads = await api("/messages/threads");
+  if (threads.length) {
+    const loaded = [];
+    for (const t of threads) {
+      const msgs = await api("/messages/threads/" + t.id);
+      loaded.push({
+        id: t.id,
+        name: t.teacher_name,
+        subject: t.teacher_subject || "Teacher",
+        initials: t.teacher_name.split(" ").filter(w => /^[A-Z]/.test(w)).slice(-2).map(w => w[0]).join(""),
+        messages: msgs.map(m => ({
+          from: m.sender_role === "PARENT" ? "me" : "them",
+          text: m.body,
+        })),
+      });
+    }
+    teachers = loaded;
+  }
+
+  // Test scores
+  const scoreData = await api("/scores/student/" + currentStudent.id);
+  if (Object.keys(scoreData.results).length) {
+    testScoresData = {};
+    for (const [testName, rows] of Object.entries(scoreData.results)) {
+      testScoresData[testName] = rows.map(r => ({
+        subject: r.subject, score: r.score, total: r.total,
+      }));
+    }
+    scoreTestFilters.length = 0;
+    scoreTestFilters.push(...Object.keys(testScoresData));
+    activeScoreTest = scoreTestFilters[0];
+  }
+
+  // Almanac holidays (PT dates stay generated by the existing rules)
+  const events = await api("/almanac");
+  const holidays = events.filter(e => e.category === "HOLIDAY" || e.category === "EVENT");
+  if (holidays.length) {
+    ALMANAC_HOLIDAYS = holidays.map(e => {
+      const [y, m, d] = e.date.split("-").map(Number);
+      return { y, m: m - 1, d, label: e.title };
+    });
+  }
+}
+
+function renderEverything() {
+  renderTeacherList();
+  renderHomeMessagePreview();
+  renderNoticeFilters();
+  renderNoticeList();
+  renderHomePreview();
+  renderAlmanacCalendar();
+  renderHomeAlmanacPreview();
+  renderScoreFilters();
+  renderScoreList();
+  renderHomeScorePreview();
+  renderSyllabusFilters();
+  renderSyllabusGroups();
+  renderBus();
+  startBusAnimation();
+}
+
+async function startApp() {
+  try {
+    await loadFromBackend();
+  } catch (e) {
+    console.warn("Backend unavailable, showing sample data instead:", e.message);
+  }
+  document.getElementById("login-overlay").classList.add("hidden");
+  renderEverything();
+}
+
+// Already signed in from a previous visit? Skip the login screen.
+if (authToken) {
+  startApp().catch(() => {
+    localStorage.removeItem("argus_parent_token");
+    authToken = null;
+  });
+}
+</script>
+</body>
+</html>
