@@ -22,6 +22,8 @@ app.use("/api/attendance", require("./routes/attendance"));
 app.use("/api/notices", require("./routes/notices"));
 app.use("/api/messages", require("./routes/messages"));
 app.use("/api/almanac", require("./routes/almanac"));
+app.use("/api/syllabus", require("./routes/syllabus"));
+app.use("/api/submissions", require("./routes/submissions"));
 
 app.get("/api/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 

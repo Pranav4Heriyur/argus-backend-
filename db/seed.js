@@ -13,6 +13,8 @@ db.exec(`
   DELETE FROM test_scores; DELETE FROM marks_permissions;
   DELETE FROM attendance; DELETE FROM notices;
   DELETE FROM almanac_events; DELETE FROM students;
+  DELETE FROM submissions; DELETE FROM submission_requirements;
+  DELETE FROM syllabus_chapters;
   DELETE FROM users; DELETE FROM grades;
 `);
 
@@ -32,7 +34,7 @@ const itId = insertUser.run("IT Department", "it@argus.school", hash("itadmin123
 const grade2 = db.prepare("SELECT id FROM grades WHERE name = 'Grade 2'").get().id;
 const grade12 = db.prepare("SELECT id FROM grades WHERE name = 'Grade 12'").get().id;
 
-insertUser.run("Mrs. Petunia Wobblebottom", "coordinator2@argus.school", hash("coord1234"), "COORDINATOR", grade2, null);
+const coordId = insertUser.run("Mrs. Petunia Wobblebottom", "coordinator2@argus.school", hash("coord1234"), "COORDINATOR", grade2, null).lastInsertRowid;
 insertUser.run("Mr. Vikram Rao", "coordinator12@argus.school", hash("coord1234"), "COORDINATOR", grade12, null);
 
 const teacherPE = insertUser.run("Mr. Baxter Higglesworth", "pe@argus.school", hash("teach1234"), "TEACHER", grade2, "Physical Education").lastInsertRowid;
@@ -101,24 +103,31 @@ for (let i = 0; i < 20; i++) {
 }
 
 // ---- Notices ----
-const addNotice = db.prepare(`
-  INSERT INTO notices (title, body, category, grade_id, posted_by) VALUES (?, ?, ?, ?, ?)
+// Intentionally left empty. Post real notices from the admin portal
+// (Notices tab) once the app is deployed — nothing here shows up by
+// default for parents anymore.
+
+// ---- Syllabus portion (Grade 2, editable from the admin portal) ----
+const addChapter = db.prepare(`
+  INSERT INTO syllabus_chapters (grade_id, subject, test_name, chapter_name, sort_order, created_by)
+  VALUES (?, ?, ?, ?, ?, ?)
 `);
-addNotice.run(
-  "Nationwide ketchup shortage reaches the cafeteria",
-  "Due to a national ketchup shortage, mustard has been named acting captain of the condiment table until further notice. We appreciate your understanding during this difficult time.",
-  "Cafeteria", null, superAdminId
-);
-addNotice.run(
-  "Annual Sports Day, save the date",
-  "Grade 2 Sports Day will be held on the school ground. Children should wear their house colours. Parents are warmly invited to cheer.",
-  "Sports", grade2, teacherClass2
-);
-addNotice.run(
-  "Library books due for return",
-  "A friendly reminder that all borrowed library books are due back by the end of the month.",
-  "Academics", grade2, teacherClass2
-);
+[
+  ["Math", "PT1", ["Numbers up to 1000", "Addition and Subtraction", "Shapes and Patterns"]],
+  ["Math", "PT2", ["Multiplication", "Division Basics", "Measurement"]],
+  ["EVS", "PT1", ["My Family", "Plants Around Us"]],
+  ["EVS", "PT2", ["Animals and Their Homes", "Water and Its Uses"]],
+].forEach(([subject, test, chapters]) => {
+  chapters.forEach((ch, i) => addChapter.run(grade2, subject, test, ch, i, coordId));
+});
+
+// ---- Submission requirements (Grade 2 example, set up by the coordinator) ----
+const addRequirement = db.prepare(`
+  INSERT INTO submission_requirements (grade_id, title, type, due_date, created_by)
+  VALUES (?, ?, ?, ?, ?)
+`);
+addRequirement.run(grade2, "My Family Tree Poster", "Project", null, coordId);
+addRequirement.run(grade2, "Plant a Seed - Observation Diary", "Assignment", null, coordId);
 
 // ---- Messages: two teacher threads with Bob's parent ----
 function makeThread(teacherId, firstMessage) {

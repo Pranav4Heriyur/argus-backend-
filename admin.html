@@ -296,6 +296,74 @@
         <tbody id="notices-body"></tbody></table>
       </div>
     </div>
+
+    <div id="panel-syllabus" class="panel hidden">
+      <div class="card">
+        <h2>Add a syllabus chapter</h2>
+        <div class="row">
+          <div><label>Grade</label><select id="syl-grade" onchange="loadSyllabusAdmin()"></select></div>
+          <div><label>Subject</label><input id="syl-subject" placeholder="Math"></div>
+        </div>
+        <div class="row">
+          <div><label>Test name</label><input id="syl-test" placeholder="PT1"></div>
+          <div><label>Order (1, 2, 3...)</label><input id="syl-order" type="number" value="1" style="max-width:120px;"></div>
+        </div>
+        <label>Chapter name</label><input id="syl-chapter" placeholder="Numbers up to 1000">
+        <div style="margin-top:14px;"><button onclick="addSyllabusChapter()">Add chapter</button></div>
+      </div>
+      <div class="card">
+        <h2>Current syllabus for this grade</h2>
+        <table><thead><tr><th>Subject</th><th>Test</th><th>#</th><th>Chapter</th><th></th></tr></thead>
+        <tbody id="syllabus-body"></tbody></table>
+      </div>
+    </div>
+
+    <div id="panel-submissions" class="panel hidden">
+      <div class="card">
+        <h2>Add a submission requirement <span class="sub">what students in this grade need to turn in</span></h2>
+        <div class="row">
+          <div><label>Grade</label><select id="sub-grade" onchange="loadRequirements()"></select></div>
+          <div><label>Type</label>
+            <input id="sub-type" list="sub-type-options" placeholder="Project">
+            <datalist id="sub-type-options">
+              <option value="Project"><option value="Assignment"><option value="Homework"><option value="Other">
+            </datalist>
+          </div>
+        </div>
+        <label>Title</label><input id="sub-title" placeholder="Science Fair Project">
+        <label>Due date (optional)</label><input id="sub-due" type="date" style="max-width:220px;">
+        <div style="margin-top:14px;"><button onclick="addRequirement()">Add requirement</button></div>
+      </div>
+      <div class="card">
+        <h2>Requirements for this grade</h2>
+        <table><thead><tr><th>Title</th><th>Type</th><th>Due</th><th></th></tr></thead>
+        <tbody id="requirements-body"></tbody></table>
+      </div>
+      <div class="card" id="req-status-card" style="display:none;">
+        <h2 id="req-status-title">Mark submissions</h2>
+        <table><thead><tr><th>Student</th><th style="width:200px;">Status</th></tr></thead>
+        <tbody id="req-status-body"></tbody></table>
+        <div style="margin-top:14px;"><button onclick="saveRequirementStatus()">Save statuses</button></div>
+      </div>
+    </div>
+
+    <div id="panel-performance" class="panel hidden">
+      <div class="card">
+        <h2>Student performance <span class="sub">test averages and submission compliance</span></h2>
+        <label>Grade</label><select id="perf-grade" onchange="loadPerformanceGrade()" style="max-width:280px;"></select>
+        <table style="margin-top:14px;"><thead><tr><th>Student</th><th>Avg test score</th><th>Submissions completed</th><th></th></tr></thead>
+        <tbody id="performance-body"></tbody></table>
+      </div>
+      <div class="card" id="perf-detail-card" style="display:none;">
+        <h2 id="perf-detail-title">Student detail</h2>
+        <h3 style="margin-top:0;">Test scores</h3>
+        <table><thead><tr><th>Test</th><th>Subject</th><th>Score</th></tr></thead>
+        <tbody id="perf-scores-body"></tbody></table>
+        <h3>Submission requirements</h3>
+        <table><thead><tr><th>Title</th><th>Type</th><th>Due</th><th>Status</th></tr></thead>
+        <tbody id="perf-requirements-body"></tbody></table>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -392,10 +460,14 @@ const TAB_ACCESS = {
   attendance: ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"],
   almanac:    ["IT_ADMIN", "SUPER_ADMIN"],
   notices:    ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN", "IT_ADMIN"],
+  syllabus:   ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"],
+  submissions:["COORDINATOR", "ADMIN", "SUPER_ADMIN"],
+  performance:["COORDINATOR", "ADMIN", "SUPER_ADMIN"],
 };
 const TAB_LABELS = {
   people: "People", approvals: "Marks approvals", marks: "Upload marks",
   attendance: "Attendance", almanac: "Almanac", notices: "Notices",
+  syllabus: "Syllabus", submissions: "Submissions", performance: "Student performance",
 };
 
 async function boot() {
@@ -425,16 +497,20 @@ function fillSelects() {
   if (ng) ng.innerHTML = `<option value="">School-wide</option>` + opts;
   const sgf = document.getElementById("student-grade-filter");
   if (sgf) sgf.innerHTML = `<option value="">All grades</option>` + opts;
+  ["syl-grade", "sub-grade", "perf-grade"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
 
   if (me.grade_id) {
-    ["p-grade", "s-grade", "student-grade-filter"].forEach(id => {
+    ["p-grade", "s-grade", "student-grade-filter", "syl-grade", "sub-grade", "perf-grade"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = me.grade_id;
     });
   }
   const roleSel = document.getElementById("u-role");
   const creatable = {
-    SUPER_ADMIN: ["ADMIN", "IT_ADMIN", "COORDINATOR", "TEACHER"],
+    SUPER_ADMIN: ["SUPER_ADMIN", "ADMIN", "IT_ADMIN", "COORDINATOR", "TEACHER"],
     ADMIN: ["COORDINATOR", "TEACHER"],
     COORDINATOR: ["TEACHER"],
   }[me.role] || [];
@@ -449,6 +525,7 @@ function showTab(tab) {
     people: () => { showPeopleSub("students"); },
     approvals: loadPermissions, marks: loadMarksForm,
     attendance: loadAttendance, almanac: loadAlmanac, notices: loadNotices,
+    syllabus: loadSyllabusAdmin, submissions: loadRequirements, performance: loadPerformanceGrade,
   })[tab]?.();
 }
 
@@ -704,6 +781,126 @@ async function loadAlmanac() {
 async function deleteAlmanac(id) {
   try { await api(`/almanac/${id}`, { method: "DELETE" }); loadAlmanac(); }
   catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+// ---------- Syllabus ----------
+async function loadSyllabusAdmin() {
+  try {
+    const gradeId = document.getElementById("syl-grade").value;
+    if (!gradeId) return;
+    const rows = await api(`/syllabus?grade_id=${gradeId}`);
+    document.getElementById("syllabus-body").innerHTML = rows.map(r => `
+      <tr><td>${esc(r.subject)}</td><td>${esc(r.test_name)}</td><td>${r.sort_order}</td><td>${esc(r.chapter_name)}</td>
+      <td><button class="danger small" onclick="deleteSyllabusChapter(${r.id})">Delete</button></td></tr>`).join("") ||
+      `<tr><td colspan="5" style="color:#999;">No chapters added yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function addSyllabusChapter() {
+  try {
+    await api("/syllabus", { method: "POST", body: JSON.stringify({
+      grade_id: document.getElementById("syl-grade").value,
+      subject: document.getElementById("syl-subject").value,
+      test_name: document.getElementById("syl-test").value,
+      chapter_name: document.getElementById("syl-chapter").value,
+      sort_order: Number(document.getElementById("syl-order").value) || 0,
+    })});
+    showMsg("global-msg", "Chapter added", true);
+    document.getElementById("syl-chapter").value = "";
+    loadSyllabusAdmin();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function deleteSyllabusChapter(id) {
+  try { await api(`/syllabus/${id}`, { method: "DELETE" }); loadSyllabusAdmin(); }
+  catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+// ---------- Submission requirements ----------
+async function loadRequirements() {
+  try {
+    document.getElementById("req-status-card").style.display = "none";
+    const gradeId = document.getElementById("sub-grade").value;
+    if (!gradeId) return;
+    const rows = await api(`/submissions/requirements?grade_id=${gradeId}`);
+    document.getElementById("requirements-body").innerHTML = rows.map(r => `
+      <tr><td>${esc(r.title)}</td><td><span class="pill">${esc(r.type)}</span></td><td>${r.due_date || "-"}</td>
+      <td>
+        <button class="small" onclick="openRequirementStatus(${r.id}, '${esc(r.title).replace(/'/g, "\\'")}')">Mark students</button>
+        <button class="danger small" onclick="deleteRequirement(${r.id})">Delete</button>
+      </td></tr>`).join("") ||
+      `<tr><td colspan="4" style="color:#999;">No requirements added yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function addRequirement() {
+  try {
+    await api("/submissions/requirements", { method: "POST", body: JSON.stringify({
+      grade_id: document.getElementById("sub-grade").value,
+      title: document.getElementById("sub-title").value,
+      type: document.getElementById("sub-type").value,
+      due_date: document.getElementById("sub-due").value || null,
+    })});
+    showMsg("global-msg", "Requirement added", true);
+    document.getElementById("sub-title").value = "";
+    document.getElementById("sub-due").value = "";
+    loadRequirements();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function deleteRequirement(id) {
+  try { await api(`/submissions/requirements/${id}`, { method: "DELETE" }); loadRequirements(); }
+  catch (e) { showMsg("global-msg", e.message, false); }
+}
+let activeRequirementId = null;
+async function openRequirementStatus(id, title) {
+  try {
+    activeRequirementId = id;
+    const data = await api(`/submissions/requirements/${id}/status`);
+    document.getElementById("req-status-title").textContent = "Mark submissions - " + title;
+    document.getElementById("req-status-body").innerHTML = data.students.map(s => `
+      <tr><td>${esc(s.name)}</td><td>
+        <select data-student="${s.student_id}" class="req-status-input">
+          ${["PENDING","SUBMITTED","LATE","MISSING"].map(st => `<option value="${st}" ${s.status === st ? "selected" : ""}>${st}</option>`).join("")}
+        </select></td></tr>`).join("");
+    document.getElementById("req-status-card").style.display = "";
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function saveRequirementStatus() {
+  try {
+    const updates = [...document.querySelectorAll(".req-status-input")].map(i =>
+      api(`/submissions/requirements/${activeRequirementId}/status`, { method: "POST", body: JSON.stringify({
+        student_id: Number(i.dataset.student), status: i.value,
+      })})
+    );
+    await Promise.all(updates);
+    showMsg("global-msg", "Statuses saved", true);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+// ---------- Student performance (principal / HM dashboard) ----------
+async function loadPerformanceGrade() {
+  try {
+    document.getElementById("perf-detail-card").style.display = "none";
+    const gradeId = document.getElementById("perf-grade").value;
+    if (!gradeId) return;
+    const rows = await api(`/submissions/performance/grade/${gradeId}`);
+    document.getElementById("performance-body").innerHTML = rows.map(r => `
+      <tr><td>${esc(r.name)}</td>
+      <td>${r.avg_score_percent === null ? "No scores yet" : r.avg_score_percent + "%"}</td>
+      <td>${r.submissions_total ? `${r.submissions_completed} / ${r.submissions_total} (${r.submission_percent}%)` : "No requirements set"}</td>
+      <td><button class="small" onclick="openPerformanceDetail(${r.student_id}, '${esc(r.name).replace(/'/g, "\\'")}')">View</button></td></tr>`).join("") ||
+      `<tr><td colspan="4" style="color:#999;">No students in this grade.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function openPerformanceDetail(studentId, name) {
+  try {
+    const data = await api(`/submissions/performance/student/${studentId}`);
+    document.getElementById("perf-detail-title").textContent = name;
+    document.getElementById("perf-scores-body").innerHTML = data.scores.map(s => `
+      <tr><td>${esc(s.test_name)}</td><td>${esc(s.subject)}</td><td>${s.score} / ${s.total}</td></tr>`).join("") ||
+      `<tr><td colspan="3" style="color:#999;">No test scores yet.</td></tr>`;
+    document.getElementById("perf-requirements-body").innerHTML = data.requirements.map(r => `
+      <tr><td>${esc(r.title)}</td><td>${esc(r.type)}</td><td>${r.due_date || "-"}</td><td><span class="pill">${r.status}</span></td></tr>`).join("") ||
+      `<tr><td colspan="4" style="color:#999;">No requirements set for this grade.</td></tr>`;
+    document.getElementById("perf-detail-card").style.display = "";
+  } catch (e) { showMsg("global-msg", e.message, false); }
 }
 
 function readFileAsDataUrl(file) {

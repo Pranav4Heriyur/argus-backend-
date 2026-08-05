@@ -138,6 +138,43 @@ CREATE TABLE IF NOT EXISTS almanac_events (
   note TEXT,
   created_by INTEGER NOT NULL REFERENCES users(id)
 );
+
+-- Syllabus Portion: tentative chapter split per test, editable per grade by
+-- that grade's coordinator (or any admin), instead of hardcoded per subject.
+CREATE TABLE IF NOT EXISTS syllabus_chapters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  grade_id INTEGER NOT NULL REFERENCES grades(id),
+  subject TEXT NOT NULL,
+  test_name TEXT NOT NULL,            -- e.g. "PT1", "PT2", "PT3 (Term Test 1)"
+  chapter_name TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_by INTEGER NOT NULL REFERENCES users(id)
+);
+
+-- Submission requirements: what a coordinator expects students in their
+-- grade to turn in (projects, assignments, etc). Varies per grade, hence
+-- owned by the coordinator of that grade (or an admin).
+CREATE TABLE IF NOT EXISTS submission_requirements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  grade_id INTEGER NOT NULL REFERENCES grades(id),
+  title TEXT NOT NULL,                -- e.g. "Science Fair Project"
+  type TEXT NOT NULL,                 -- e.g. "Project", "Assignment", "Homework"
+  due_date TEXT,                      -- YYYY-MM-DD, optional
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Per-student status against each requirement. One row is created lazily
+-- (defaults to PENDING) the first time anyone views/marks it for a student.
+CREATE TABLE IF NOT EXISTS submissions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  requirement_id INTEGER NOT NULL REFERENCES submission_requirements(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL REFERENCES students(id),
+  status TEXT NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SUBMITTED','LATE','MISSING')),
+  marked_by INTEGER REFERENCES users(id),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(requirement_id, student_id)
+);
 `);
 
 // Migration: add password-reset columns if they don't already exist.

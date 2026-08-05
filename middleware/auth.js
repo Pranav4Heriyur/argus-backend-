@@ -63,6 +63,9 @@ function requireRole(...roles) {
 // A user may only create/delete accounts strictly below their own rank.
 // This is what stops a COORDINATOR from creating an ADMIN, etc.
 function canManageRole(actorRole, targetRole) {
+  // Special case: only a SUPER_ADMIN can create another SUPER_ADMIN. Every
+  // other role can only create roles strictly below their own rank.
+  if (actorRole === "SUPER_ADMIN" && targetRole === "SUPER_ADMIN") return true;
   return ROLE_RANK[actorRole] > ROLE_RANK[targetRole];
 }
 

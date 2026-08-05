@@ -1463,6 +1463,37 @@
     </main>
   </div>
 
+  <div class="view" id="view-attendance">
+    <header class="topbar" style="padding-bottom:8px;">
+      <div class="thread-header" style="width:100%;">
+        <button class="back" onclick="switchTab('more')">Back</button>
+        <div>
+          <b style="font-size:14.5px;">Attendance history</b><br>
+          <span style="font-size:12px;color:var(--gray-text);" id="attendance-student-line">Loading...</span>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div class="score-summary-card">
+        <svg viewBox="0 0 120 120" class="score-ring">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#ffffff55" stroke-width="12"/>
+          <circle id="att-ring-fill" cx="60" cy="60" r="52" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="score-ring-label">
+          <b id="att-ring-pct">-</b>
+          <span id="att-ring-note">days</span>
+        </div>
+        <div class="score-summary-text">
+          <h3 id="att-summary-title">Overall attendance</h3>
+          <p id="att-summary-note">Loading summary...</p>
+        </div>
+      </div>
+
+      <div class="filter-group-label" style="margin-top:16px;">Last 60 days</div>
+      <div id="attendance-list"></div>
+    </main>
+  </div>
+
   <div class="view" id="view-syllabus">
     <header class="topbar" style="padding-bottom:8px;">
       <div class="thread-header" style="width:100%;">
@@ -1487,7 +1518,7 @@
       <div class="greeting"><h1>More</h1><div class="meta-line">Bob Wigglesworth, Grade 2</div></div>
     </header>
     <main>
-      <div class="more-item"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span>Attendance history</span></div></div>
+      <div class="more-item" onclick="switchTab('attendance')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span>Attendance history</span></div></div>
       <div class="more-item" onclick="switchTab('scores')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span><span>Test Scores</span></div></div>
       <div class="more-item" onclick="switchTab('syllabus')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></span><span>Syllabus Portion</span></div></div>
       <div class="more-item" onclick="switchTab('almanac')"><div class="more-item-left"><span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span><span>Almanac</span></div></div>
@@ -1540,6 +1571,7 @@ function switchTab(tab){
     b.classList.toggle('active', b.dataset.tab === navHighlight);
   });
   if(tab === 'messages') closeThread();
+  if(tab === 'attendance') loadAndRenderAttendance();
   if(tab === 'bus'){
     if(!leafletMap){
       initMap();
@@ -1549,6 +1581,62 @@ function switchTab(tab){
     initTripSlider();
     renderBus();
   }
+}
+
+async function loadAndRenderAttendance() {
+  const lineEl = document.getElementById("attendance-student-line");
+  const listEl = document.getElementById("attendance-list");
+  const noteEl = document.getElementById("att-summary-note");
+  lineEl.textContent = currentStudent ? (currentStudent.name + ", " + currentStudent.grade_name) : "";
+  listEl.innerHTML = "<div style=\"padding:20px;text-align:center;color:var(--gray-text);font-size:13px;\">Loading...</div>";
+
+  if (!currentStudent) {
+    listEl.innerHTML = "<div style=\"padding:20px;text-align:center;color:var(--gray-text);font-size:13px;\">No student profile loaded.</div>";
+    return;
+  }
+
+  let data;
+  try {
+    data = await api("/attendance/student/" + currentStudent.id);
+  } catch (e) {
+    listEl.innerHTML = "<div style=\"padding:20px;text-align:center;color:#B3261E;font-size:13px;\">Could not load attendance: " + e.message + "</div>";
+    return;
+  }
+
+  const pct = data.summary.attendance_percent;
+  document.getElementById("att-ring-pct").textContent = pct === null ? "-" : pct + "%";
+  document.getElementById("att-ring-note").textContent = "attended";
+  noteEl.textContent = data.summary.total_days
+    ? `${data.summary.days_present} of ${data.summary.total_days} days present`
+    : "No attendance recorded yet.";
+
+  const ring = document.getElementById("att-ring-fill");
+  const circumference = 2 * Math.PI * 52;
+  const fraction = pct === null ? 0 : pct / 100;
+  ring.style.strokeDasharray = circumference;
+  ring.style.strokeDashoffset = circumference * (1 - fraction);
+
+  if (!data.recent.length) {
+    listEl.innerHTML = "<div style=\"padding:20px;text-align:center;color:var(--gray-text);font-size:13px;\">No attendance records yet.</div>";
+    return;
+  }
+
+  const statusColors = {
+    PRESENT: { bg: "#eafaf0", text: "#1a7f4f" },
+    ABSENT: { bg: "#FDECEA", text: "#B3261E" },
+    LATE: { bg: "#FFF6E5", text: "#B37E00" },
+    EXCUSED: { bg: "#EFEBFF", text: "#5A4BD4" },
+  };
+
+  listEl.innerHTML = data.recent.map(r => {
+    const c = statusColors[r.status] || { bg: "#eee", text: "#333" };
+    const d = new Date(r.date + "T00:00:00");
+    const dateLabel = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#fff;border-radius:12px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+      <span style="font-size:13.5px;">${dateLabel}</span>
+      <span style="font-size:12px;font-weight:bold;padding:4px 10px;border-radius:20px;background:${c.bg};color:${c.text};">${r.status}</span>
+    </div>`;
+  }).join("");
 }
 
 let teachers = [
@@ -2350,40 +2438,30 @@ function renderHomeScorePreview(){
   `;
 }
 
-// Syllabus Portion Tracker: tentative chapter split per test, based on the
-// CBSE Class 12 syllabus. Non-cumulative, each test covers new chapters
-// only. Update syllabusData once the school confirms the real split.
-const syllabusData = {
-  "Math": {
-    "PT1": ["Relations and Functions", "Inverse Trigonometric Functions", "Matrices", "Determinants"],
-    "PT2": ["Continuity and Differentiability", "Application of Derivatives", "Integrals", "Application of Integrals", "Differential Equations"],
-    "PT3 (Term Test 1)": ["Vector Algebra", "Three Dimensional Geometry", "Linear Programming", "Probability"],
-  },
-  "Physics": {
-    "PT1": ["Electric Charges and Fields", "Electrostatic Potential and Capacitance", "Current Electricity", "Moving Charges and Magnetism", "Magnetism and Matter"],
-    "PT2": ["Electromagnetic Induction", "Alternating Current", "Electromagnetic Waves", "Ray Optics and Optical Instruments", "Wave Optics"],
-    "PT3 (Term Test 1)": ["Dual Nature of Radiation and Matter", "Atoms", "Nuclei", "Semiconductor Electronics"],
-  },
-  "Chemistry": {
-    "PT1": ["Solutions", "Electrochemistry", "Chemical Kinetics"],
-    "PT2": ["d and f Block Elements", "Coordination Compounds", "Haloalkanes and Haloarenes"],
-    "PT3 (Term Test 1)": ["Alcohols, Phenols and Ethers", "Aldehydes, Ketones and Carboxylic Acids", "Amines", "Biomolecules"],
-  },
-  "Biology": {
-    "PT1": ["Reproduction in Organisms", "Sexual Reproduction in Flowering Plants", "Human Reproduction", "Reproductive Health", "Principles of Inheritance and Variation"],
-    "PT2": ["Molecular Basis of Inheritance", "Evolution", "Human Health and Disease", "Microbes in Human Welfare", "Biotechnology, Principles and Processes"],
-    "PT3 (Term Test 1)": ["Biotechnology and its Applications", "Organisms and Populations", "Ecosystem", "Biodiversity and Conservation"],
-  },
-};
+let syllabusByGrade = { subjects: [], groupsBySubject: {} }; // filled from API after login
+let activeSyllabusSubject = null;
 
 const syllabusColorMap = {
   "PT1": { bg:"#FEF3C7", text:"#92700A" },
   "PT2": { bg:"#E4EEFB", text:"#2B6CB0" },
-  "PT3 (Term Test 1)": { bg:"#FDEEDD", text:"#C05621" },
 };
+const syllabusColorFallback = { bg:"#EFEBFF", text:"#5A4BD4" };
+function syllabusColorFor(testName){
+  return syllabusColorMap[testName] || (testName.includes("Term") ? { bg:"#FDEEDD", text:"#C05621" } : syllabusColorFallback);
+}
 
-const syllabusSubjects = ["Math", "Physics", "Chemistry", "Biology"];
-let activeSyllabusSubject = "Math";
+async function loadSyllabus(){
+  if (!currentStudent) return;
+  const rows = await api("/syllabus?grade_id=" + currentStudent.grade_id);
+  const groupsBySubject = {};
+  for (const row of rows) {
+    if (!groupsBySubject[row.subject]) groupsBySubject[row.subject] = {};
+    if (!groupsBySubject[row.subject][row.test_name]) groupsBySubject[row.subject][row.test_name] = [];
+    groupsBySubject[row.subject][row.test_name].push(row.chapter_name);
+  }
+  syllabusByGrade = { subjects: Object.keys(groupsBySubject), groupsBySubject };
+  activeSyllabusSubject = syllabusByGrade.subjects[0] || null;
+}
 
 function setSyllabusSubject(subject){
   activeSyllabusSubject = subject;
@@ -2394,7 +2472,7 @@ function setSyllabusSubject(subject){
 function renderSyllabusFilters(){
   const wrap = document.getElementById('syllabus-subject-filters');
   if(!wrap) return;
-  wrap.innerHTML = syllabusSubjects.map(s => `
+  wrap.innerHTML = syllabusByGrade.subjects.map(s => `
     <button class="filter-chip ${s === activeSyllabusSubject ? 'active' : ''}" onclick="setSyllabusSubject('${s}')">${s}</button>
   `).join('');
 }
@@ -2402,9 +2480,13 @@ function renderSyllabusFilters(){
 function renderSyllabusGroups(){
   const wrap = document.getElementById('syllabus-groups');
   if(!wrap) return;
-  const groups = syllabusData[activeSyllabusSubject];
+  if (!activeSyllabusSubject) {
+    wrap.innerHTML = '<div style="padding:20px;text-align:center;color:var(--gray-text);font-size:13px;">No syllabus has been added for this grade yet.</div>';
+    return;
+  }
+  const groups = syllabusByGrade.groupsBySubject[activeSyllabusSubject];
   wrap.innerHTML = Object.keys(groups).map(groupName => {
-    const c = syllabusColorMap[groupName];
+    const c = syllabusColorFor(groupName);
     const chapters = groups[groupName];
     return `
       <div class="syllabus-group">
@@ -2500,11 +2582,15 @@ async function submitForgotPassword() {
     return;
   }
   try {
-    await api("/auth/forgot-password", {
+    const data = await api("/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email }),
     });
-    okEl.textContent = "If that email is registered, a reset link has been sent. Check your inbox.";
+    if (data.demo_reset_url) {
+      okEl.innerHTML = `Demo mode (no email configured) — <a href="${data.demo_reset_url}" target="_blank" style="color:#1a7f4f;font-weight:bold;">click here to reset the password</a>`;
+    } else {
+      okEl.textContent = "If that email is registered, a reset link has been sent. Check your inbox.";
+    }
     okEl.style.display = "block";
   } catch (e) {
     errEl.textContent = e.message.includes("fetch") || e.message === "Failed to fetch"
@@ -2599,6 +2685,9 @@ async function loadFromBackend() {
       return { y, m: m - 1, d, label: e.title };
     });
   }
+
+  // Syllabus portion, specific to this student's grade
+  await loadSyllabus();
 }
 
 function renderEverything() {
@@ -2628,13 +2717,10 @@ async function startApp() {
   renderEverything();
 }
 
-// Already signed in from a previous visit? Skip the login screen.
-if (authToken) {
-  startApp().catch(() => {
-    localStorage.removeItem("argus_parent_token");
-    authToken = null;
-  });
-}
+// Note: sessions are intentionally not auto-resumed on page load. Each visit
+// starts at the login screen, even if a previous session's token is still
+// valid, so a shared/demo browser never opens straight into someone else's
+// account. The "Log out" button still fully clears the stored token.
 </script>
 </body>
 </html>
