@@ -68,6 +68,34 @@
   .detail-field.full{grid-column:1 / -1;}
   .detail-actions{display:flex;gap:10px;justify-content:flex-end;padding:18px 28px;border-top:1px solid #eee;background:#fafafa;}
   .file-chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--purple-light);color:var(--purple-dark);padding:4px 10px;border-radius:8px;text-decoration:none;}
+
+  /* Alarm-style two-way toggle for message threads */
+  .alarm-toggle{position:relative;display:inline-flex;align-items:center;width:50px;height:26px;background:#e2e2e2;border-radius:999px;cursor:pointer;transition:background .18s;flex-shrink:0;border:1px solid #d5d5d5;}
+  .alarm-toggle.on{background:var(--green);border-color:var(--green);}
+  .alarm-toggle-dot{position:absolute;top:1px;left:1px;width:22px;height:22px;background:#fff;border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.35);transition:left .18s;display:flex;align-items:center;justify-content:center;font-size:12px;}
+  .alarm-toggle.on .alarm-toggle-dot{left:25px;}
+  .two-way-banner{font-size:12px;padding:8px 12px;border-radius:8px;margin:8px 0 14px;background:#FFF6E5;color:#B37E00;}
+  .two-way-banner.on{background:#E4F6E9;color:var(--green);}
+
+  /* Fast attendance grid */
+  .fa-chip{border:1px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;user-select:none;font-size:13px;transition:.15s;background:#fff;}
+  .fa-chip .fa-name{display:block;font-weight:600;margin-bottom:4px;}
+  .fa-chip .fa-status{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .fa-chip.PRESENT{background:#E4F6E9;border-color:#bfe8cc;}
+  .fa-chip.PRESENT .fa-status{color:var(--green);}
+  .fa-chip.ABSENT{background:#FDECEA;border-color:#f5c9c3;}
+  .fa-chip.ABSENT .fa-status{color:var(--red);}
+  .fa-chip.LATE{background:#FFF6E5;border-color:#f2ddac;}
+  .fa-chip.LATE .fa-status{color:#B37E00;}
+  .fa-chip.EXCUSED{background:#EFEBFF;border-color:#d6cdf7;}
+  .fa-chip.EXCUSED .fa-status{color:#5A4BD4;}
+
+  /* Message threads */
+  .thread-row{cursor:pointer;}
+  .msg-bubble{max-width:75%;padding:9px 13px;border-radius:14px;font-size:13.5px;line-height:1.4;}
+  .msg-bubble.mine{align-self:flex-end;background:var(--purple);color:#fff;border-bottom-right-radius:4px;}
+  .msg-bubble.theirs{align-self:flex-start;background:#f0eefb;color:#1F2430;border-bottom-left-radius:4px;}
+  .msg-bubble .meta{display:block;font-size:10.5px;opacity:.7;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -243,13 +271,33 @@
     </div>
 
     <div id="panel-attendance" class="panel hidden">
-      <div class="card">
-        <h2>Attendance</h2>
-        <label>Date</label>
-        <input id="a-date" type="date" style="max-width:220px;" onchange="loadAttendance()">
-        <table style="margin-top:14px;"><thead><tr><th>Student</th><th style="width:200px;">Status</th></tr></thead>
-        <tbody id="attendance-body"></tbody></table>
-        <div style="margin-top:14px;"><button onclick="saveAttendance()">Save attendance</button></div>
+      <div class="subtabs" id="attendance-subtabs">
+        <button data-sub="grade" class="active" onclick="showAttendanceSub('grade')">By grade</button>
+        <button data-sub="fast" onclick="showAttendanceSub('fast')">Fast (by section)</button>
+      </div>
+
+      <div id="attendance-grade">
+        <div class="card">
+          <h2>Attendance</h2>
+          <label>Date</label>
+          <input id="a-date" type="date" style="max-width:220px;" onchange="loadAttendance()">
+          <table style="margin-top:14px;"><thead><tr><th>Student</th><th style="width:200px;">Status</th></tr></thead>
+          <tbody id="attendance-body"></tbody></table>
+          <div style="margin-top:14px;"><button onclick="saveAttendance()">Save attendance</button></div>
+        </div>
+      </div>
+
+      <div id="attendance-fast" class="hidden">
+        <div class="card">
+          <h2>Fast attendance <span class="sub">everyone starts Absent — tap a student to mark them Present</span></h2>
+          <div class="row">
+            <div><label>Grade</label><select id="fa-grade" onchange="loadFaSections()"></select></div>
+            <div><label>Section</label><select id="fa-section" onchange="loadFastAttendance()"></select></div>
+            <div><label>Date</label><input id="fa-date" type="date" onchange="loadFastAttendance()"></div>
+          </div>
+          <div id="fa-grid" style="margin-top:16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;"></div>
+          <div style="margin-top:16px;"><button onclick="saveFastAttendance()">Save attendance</button></div>
+        </div>
       </div>
     </div>
 
@@ -364,6 +412,72 @@
         <tbody id="perf-requirements-body"></tbody></table>
       </div>
     </div>
+
+    <div id="panel-sections" class="panel hidden">
+      <div class="card" id="sections-create-card">
+        <h2>Create a section</h2>
+        <div class="row">
+          <div><label>Grade</label><select id="sec-grade" onchange="loadSections()"></select></div>
+          <div><label>Section name</label><input id="sec-name" placeholder="A"></div>
+          <div><label>Class teacher (optional)</label>
+            <select id="sec-teacher"><option value="">None</option></select>
+          </div>
+        </div>
+        <div style="margin-top:14px;"><button onclick="createSection()">Create section</button></div>
+      </div>
+
+      <div class="card">
+        <h2>Sections <span class="sub">tap a section to open its class group board</span></h2>
+        <div style="margin-bottom:12px;max-width:220px;">
+          <select id="sections-grade-filter" onchange="loadSections()"></select>
+        </div>
+        <table><thead><tr><th>Name</th><th>Class teacher</th><th>Students</th><th></th></tr></thead>
+        <tbody id="sections-body"></tbody></table>
+      </div>
+
+      <div class="card hidden" id="classgroup-card">
+        <h2 id="classgroup-title">Class group</h2>
+        <p style="font-size:12px;color:var(--gray);margin:0 0 12px;">One-way board for this section &mdash; visible to its parents and class teacher.</p>
+        <label>Title</label><input id="cg-title" placeholder="Field trip reminder">
+        <label>Message</label><textarea id="cg-body" rows="3" placeholder="Post something to this class's parents..."></textarea>
+        <div style="margin-top:12px;"><button onclick="postClassGroup()">Post</button> <button class="ghost" onclick="closeClassGroup()">Close</button></div>
+        <div id="classgroup-posts" style="margin-top:18px;"></div>
+      </div>
+    </div>
+
+    <div id="panel-messages" class="panel hidden">
+      <div id="messages-list-view">
+        <div class="card">
+          <h2>Message a parent</h2>
+          <div class="row">
+            <div><label>Grade</label><select id="msg-grade" onchange="loadMsgStudents()"></select></div>
+            <div><label>Student</label><select id="msg-student"></select></div>
+          </div>
+          <div style="margin-top:14px;"><button onclick="startThread()">Open conversation</button></div>
+        </div>
+        <div class="card">
+          <h2>Conversations</h2>
+          <table><thead><tr><th>Parent</th><th>Student</th><th>Last message</th><th>Two-way</th></tr></thead>
+          <tbody id="threads-body"></tbody></table>
+        </div>
+      </div>
+
+      <div id="messages-thread-view" class="card hidden">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+          <h2 id="thread-header" style="margin:0;">Conversation</h2>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:12px;color:var(--gray);">Two-way replies</span>
+            <div class="alarm-toggle" id="two-way-toggle" onclick="toggleTwoWay()" title="Let the parent reply">
+              <span class="alarm-toggle-dot">🔔</span>
+            </div>
+          </div>
+        </div>
+        <div id="two-way-banner" class="two-way-banner"></div>
+        <div id="thread-messages-body" style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:14px;padding:4px;"></div>
+        <textarea id="msg-compose" rows="2" placeholder="Write a message to this parent..."></textarea>
+        <div style="margin-top:10px;"><button onclick="sendThreadMessage()">Send</button> <button class="ghost" onclick="closeThreadView()">Back to conversations</button></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -463,11 +577,14 @@ const TAB_ACCESS = {
   syllabus:   ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"],
   submissions:["COORDINATOR", "ADMIN", "SUPER_ADMIN"],
   performance:["COORDINATOR", "ADMIN", "SUPER_ADMIN"],
+  sections:   ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN", "IT_ADMIN"],
+  messages:   ["TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"],
 };
 const TAB_LABELS = {
   people: "People", approvals: "Marks approvals", marks: "Upload marks",
   attendance: "Attendance", almanac: "Almanac", notices: "Notices",
   syllabus: "Syllabus", submissions: "Submissions", performance: "Student performance",
+  sections: "Sections & class groups", messages: "Messages",
 };
 
 async function boot() {
@@ -501,9 +618,14 @@ function fillSelects() {
     const el = document.getElementById(id);
     if (el) el.innerHTML = opts;
   });
+  ["sec-grade", "sections-grade-filter", "msg-grade"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = opts;
+  });
 
   if (me.grade_id) {
-    ["p-grade", "s-grade", "student-grade-filter", "syl-grade", "sub-grade", "perf-grade"].forEach(id => {
+    ["p-grade", "s-grade", "student-grade-filter", "syl-grade", "sub-grade", "perf-grade",
+     "sec-grade", "sections-grade-filter", "msg-grade"].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.value = me.grade_id;
     });
@@ -524,9 +646,19 @@ function showTab(tab) {
   ({
     people: () => { showPeopleSub("students"); },
     approvals: loadPermissions, marks: loadMarksForm,
-    attendance: loadAttendance, almanac: loadAlmanac, notices: loadNotices,
+    attendance: () => { showAttendanceSub("grade"); },
+    almanac: loadAlmanac, notices: loadNotices,
     syllabus: loadSyllabusAdmin, submissions: loadRequirements, performance: loadPerformanceGrade,
+    sections: loadSections, messages: () => { closeThreadView(); loadThreads(); },
   })[tab]?.();
+}
+
+function showAttendanceSub(sub) {
+  document.getElementById("attendance-grade").classList.toggle("hidden", sub !== "grade");
+  document.getElementById("attendance-fast").classList.toggle("hidden", sub !== "fast");
+  document.querySelectorAll("#attendance-subtabs button").forEach(b => b.classList.toggle("active", b.dataset.sub === sub));
+  if (sub === "grade") loadAttendance();
+  else loadFastAttendance();
 }
 
 function showPeopleSub(sub) {
@@ -753,6 +885,247 @@ async function saveAttendance() {
     await api("/attendance", { method: "POST", body: JSON.stringify({ date: document.getElementById("a-date").value, entries }) });
     showMsg("global-msg", "Attendance saved", true);
   } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+// ---------- Fast attendance (by section, mark-absent-by-default) ----------
+let faStudents = [];
+function ensureFaGradeSelect() {
+  const sel = document.getElementById("fa-grade");
+  if (!sel.dataset.filled) {
+    sel.innerHTML = grades.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join("");
+    sel.value = me.grade_id || (grades[0] && grades[0].id) || "";
+    sel.dataset.filled = "1";
+  }
+}
+// Called when the grade dropdown changes: refresh the section list, then load attendance for whatever section ends up selected.
+async function loadFaSections() {
+  ensureFaGradeSelect();
+  const gradeId = document.getElementById("fa-grade").value;
+  const sel = document.getElementById("fa-section");
+  if (!gradeId) { sel.innerHTML = ""; return renderFaEmpty("Pick a grade."); }
+  try {
+    const sections = await api(`/sections?grade_id=${gradeId}`);
+    sel.innerHTML = sections.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+    if (!sections.length) return renderFaEmpty("No sections in this grade yet.");
+  } catch (e) { showMsg("global-msg", e.message, false); return; }
+  loadFastAttendance();
+}
+function renderFaEmpty(text) {
+  document.getElementById("fa-grid").innerHTML = `<div style="color:#999;">${esc(text)}</div>`;
+}
+// Called on tab entry, date change, or section change: fetch attendance for the currently selected section.
+async function loadFastAttendance() {
+  ensureFaGradeSelect();
+  const dateEl = document.getElementById("fa-date");
+  if (!dateEl.value) dateEl.value = new Date().toISOString().slice(0, 10);
+  const sectionSel = document.getElementById("fa-section");
+  if (!sectionSel.options.length) return loadFaSections();
+
+  const sectionId = sectionSel.value;
+  if (!sectionId) return renderFaEmpty("Pick a section.");
+  try {
+    const data = await api(`/attendance/section/${sectionId}?date=${dateEl.value}`);
+    faStudents = data.students;
+    renderFaGrid();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+function renderFaGrid() {
+  const grid = document.getElementById("fa-grid");
+  grid.innerHTML = faStudents.map((s, i) => `
+    <div class="fa-chip ${s.status}" data-i="${i}" onclick="cycleFaStatus(${i})">
+      <span class="fa-name">${esc(s.student_name)}</span>
+      <span class="fa-status">${s.status}</span>
+    </div>`).join("") || `<div style="color:#999;">No students in this section.</div>`;
+}
+function cycleFaStatus(i) {
+  const order = ["ABSENT", "PRESENT", "LATE", "EXCUSED"];
+  const cur = order.indexOf(faStudents[i].status);
+  faStudents[i].status = order[(cur + 1) % order.length];
+  renderFaGrid();
+}
+async function saveFastAttendance() {
+  try {
+    const dateEl = document.getElementById("fa-date");
+    const entries = faStudents.map(s => ({ student_id: s.student_id, status: s.status }));
+    if (!entries.length) return;
+    await api("/attendance", { method: "POST", body: JSON.stringify({ date: dateEl.value, entries }) });
+    showMsg("global-msg", `Saved attendance for ${entries.length} students`, true);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+// ---------- Sections & class groups ----------
+async function loadSectionTeacherOptions() {
+  const sel = document.getElementById("sec-teacher");
+  const gradeId = document.getElementById("sec-grade").value;
+  try {
+    const teachers = await api(`/users?role=TEACHER${gradeId ? "&grade_id=" + gradeId : ""}`);
+    sel.innerHTML = `<option value="">None</option>` + teachers.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  } catch (e) {
+    // IT_ADMIN can't list users (/users is COORDINATOR/ADMIN/SUPER_ADMIN only) — fall back to typing an ID.
+    sel.outerHTML = `<input id="sec-teacher" placeholder="Teacher user ID (see People &rarr; Staff accounts)">`;
+  }
+}
+async function createSection() {
+  try {
+    const teacherEl = document.getElementById("sec-teacher");
+    await api("/sections", { method: "POST", body: JSON.stringify({
+      grade_id: document.getElementById("sec-grade").value,
+      name: document.getElementById("sec-name").value,
+      class_teacher_id: teacherEl.value || null,
+    })});
+    showMsg("global-msg", "Section created", true);
+    document.getElementById("sec-name").value = "";
+    loadSections();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function loadSections() {
+  try {
+    // IT_ADMIN and SUPER_ADMIN create sections for any grade; everyone else only sees their own.
+    const canCreateAnyGrade = me.role === "IT_ADMIN" || me.role === "SUPER_ADMIN";
+    document.getElementById("sections-create-card").classList.toggle("hidden", !canCreateAnyGrade);
+    if (canCreateAnyGrade && document.getElementById("sec-grade").value) loadSectionTeacherOptions();
+
+    const gradeId = document.getElementById("sections-grade-filter").value || me.grade_id;
+    if (!gradeId) { document.getElementById("sections-body").innerHTML = `<tr><td colspan="4" style="color:#999;">Pick a grade.</td></tr>`; return; }
+    const sections = await api(`/sections?grade_id=${gradeId}`);
+    document.getElementById("sections-body").innerHTML = sections.map(s => `
+      <tr class="clickable" onclick="openClassGroup(${s.id}, '${esc(s.name).replace(/'/g, "\\'")}')">
+        <td><b>${esc(s.name)}</b></td>
+        <td>${esc(s.class_teacher_name) || "-"}</td>
+        <td>${s.student_count}</td>
+        <td><button class="small" onclick="event.stopPropagation();openClassGroup(${s.id}, '${esc(s.name).replace(/'/g, "\\'")}')">Class group</button></td>
+      </tr>`).join("") || `<tr><td colspan="4" style="color:#999;">No sections in this grade yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+let activeSectionId = null;
+async function openClassGroup(sectionId, name) {
+  try {
+    activeSectionId = sectionId;
+    document.getElementById("classgroup-title").textContent = "Class group — " + name;
+    document.getElementById("classgroup-card").classList.remove("hidden");
+    const data = await api(`/classgroup/${sectionId}`);
+    document.getElementById("classgroup-posts").innerHTML = data.posts.map(p => `
+      <div style="padding:12px 14px;background:#faf9ff;border-radius:10px;margin-bottom:10px;">
+        <b>${esc(p.title)}</b>
+        <div style="font-size:13px;margin:6px 0;white-space:pre-wrap;">${esc(p.body)}</div>
+        <div style="font-size:11px;color:#999;">${esc(p.posted_by_name)} &middot; ${esc(p.created_at)}</div>
+      </div>`).join("") || `<div style="color:#999;font-size:13px;">Nothing posted to this class yet.</div>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+function closeClassGroup() {
+  activeSectionId = null;
+  document.getElementById("classgroup-card").classList.add("hidden");
+}
+async function postClassGroup() {
+  try {
+    if (!activeSectionId) return;
+    const title = document.getElementById("cg-title").value;
+    const body = document.getElementById("cg-body").value;
+    if (!title || !body) return showMsg("global-msg", "Title and message are required", false);
+    await api(`/classgroup/${activeSectionId}`, { method: "POST", body: JSON.stringify({ title, body }) });
+    document.getElementById("cg-title").value = "";
+    document.getElementById("cg-body").value = "";
+    showMsg("global-msg", "Posted to class group", true);
+    const name = document.getElementById("classgroup-title").textContent.replace("Class group — ", "");
+    openClassGroup(activeSectionId, name);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+// ---------- Messages (one-way by default; teacher flips the toggle) ----------
+async function loadMsgStudents() {
+  try {
+    const gradeId = document.getElementById("msg-grade").value;
+    const sel = document.getElementById("msg-student");
+    if (!gradeId) { sel.innerHTML = ""; return; }
+    const students = await api(`/students?grade_id=${gradeId}`);
+    const withParent = students.filter(s => s.parent_user_id);
+    sel.innerHTML = withParent.map(s => `<option value="${s.id}" data-parent="${s.parent_user_id}">${esc(s.name)} (parent: ${esc(s.parent_full_name) || "-"})</option>`).join("") ||
+      `<option value="">No students with a linked parent in this grade</option>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function startThread() {
+  try {
+    const sel = document.getElementById("msg-student");
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return showMsg("global-msg", "Pick a student first", false);
+    const parentId = opt.dataset.parent;
+    const created = await api("/messages", { method: "POST", body: JSON.stringify({
+      teacher_id: me.id, parent_id: parentId, student_id: Number(opt.value),
+      body: "Hi, this is " + me.name + ".",
+    })});
+    await loadThreads();
+    openThreadView(created.thread_id);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function loadThreads() {
+  try {
+    const threads = await api("/messages/threads");
+    document.getElementById("threads-body").innerHTML = threads.map(t => `
+      <tr class="thread-row" onclick="openThreadView(${t.id})">
+        <td><b>${esc(t.parent_name)}</b></td>
+        <td>${esc(t.student_name) || "-"}</td>
+        <td style="color:#777;">${esc((t.last_message || "").slice(0, 60))}</td>
+        <td>${t.two_way_enabled ? '<span class="pill on">On</span>' : '<span class="pill off">Off</span>'}</td>
+      </tr>`).join("") || `<tr><td colspan="4" style="color:#999;">No conversations yet.</td></tr>`;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+let activeThread = null;
+async function openThreadView(threadId) {
+  try {
+    const threads = await api("/messages/threads");
+    activeThread = threads.find(t => t.id === threadId);
+    if (!activeThread) return;
+    document.getElementById("messages-list-view").classList.add("hidden");
+    document.getElementById("messages-thread-view").classList.remove("hidden");
+    document.getElementById("thread-header").textContent =
+      activeThread.parent_name + (activeThread.student_name ? " — about " + activeThread.student_name : "");
+    renderTwoWayUi();
+    const msgs = await api(`/messages/threads/${threadId}`);
+    const body = document.getElementById("thread-messages-body");
+    body.innerHTML = msgs.map(m => `
+      <div class="msg-bubble ${m.sender_role !== "PARENT" ? "mine" : "theirs"}">
+        ${esc(m.body)}
+        <span class="meta">${esc(m.sender_name)} &middot; ${esc(m.created_at)}</span>
+      </div>`).join("") || `<div style="color:#999;font-size:13px;">No messages yet.</div>`;
+    body.scrollTop = body.scrollHeight;
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+function renderTwoWayUi() {
+  const toggle = document.getElementById("two-way-toggle");
+  const banner = document.getElementById("two-way-banner");
+  toggle.classList.toggle("on", !!activeThread.two_way_enabled);
+  if (activeThread.two_way_enabled) {
+    banner.className = "two-way-banner on";
+    banner.textContent = "Two-way is on — " + activeThread.parent_name + " can reply.";
+  } else {
+    banner.className = "two-way-banner";
+    banner.textContent = "One-way — only you can send messages here. Flip the toggle to let " + activeThread.parent_name + " reply.";
+  }
+}
+async function toggleTwoWay() {
+  try {
+    const next = !activeThread.two_way_enabled;
+    await api(`/messages/threads/${activeThread.id}/two-way`, { method: "PATCH", body: JSON.stringify({ enabled: next }) });
+    activeThread.two_way_enabled = next;
+    renderTwoWayUi();
+    loadThreads();
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+async function sendThreadMessage() {
+  try {
+    const input = document.getElementById("msg-compose");
+    const text = input.value.trim();
+    if (!text || !activeThread) return;
+    input.value = "";
+    await api("/messages", { method: "POST", body: JSON.stringify({ thread_id: activeThread.id, body: text }) });
+    openThreadView(activeThread.id);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+function closeThreadView() {
+  activeThread = null;
+  document.getElementById("messages-thread-view").classList.add("hidden");
+  document.getElementById("messages-list-view").classList.remove("hidden");
+  loadThreads();
 }
 
 async function addAlmanac() {

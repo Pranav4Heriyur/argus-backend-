@@ -12,7 +12,7 @@ router.use(requireAuth);
 // GET /api/notices
 // Parents get their child's grade + school-wide, automatically.
 // Staff can pass ?grade_id= to look at a specific grade.
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   // Note: attachment_data is deliberately excluded here so the list stays
   // light. A has_attachment flag tells the UI whether to show a download link.
   let sql = `
@@ -28,7 +28,7 @@ router.get("/", (req, res) => {
   const params = [];
 
   if (req.user.role === "PARENT") {
-    const child = db.prepare("SELECT grade_id FROM students WHERE parent_user_id = ?").get(req.user.id);
+    const child = await db.prepare("SELECT grade_id FROM students WHERE parent_user_id = ?").get(req.user.id);
     sql += " AND (n.grade_id IS NULL OR n.grade_id = ?)";
     params.push(child ? child.grade_id : -1);
   } else if (req.query.grade_id) {
@@ -42,13 +42,13 @@ router.get("/", (req, res) => {
   }
 
   sql += " ORDER BY n.created_at DESC";
-  res.json(db.prepare(sql).all(...params));
+  res.json(await db.prepare(sql).all(...params));
 });
 
 // POST /api/notices  { title, body, category, grade_id, attachment_name?, attachment_data? }
 // grade_id null means school-wide, which only ADMIN and up may post.
 // attachment_data is a base64 data URL (e.g. a PDF the school wants to share).
-router.post("/", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN", "IT_ADMIN"), (req, res) => {
+router.post("/", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN", "IT_ADMIN"), async (req, res) => {
   const { title, body, category, grade_id, attachment_name, attachment_data } = req.body || {};
   if (!title || !body || !category) {
     return res.status(400).json({ error: "title, body and category are required" });
@@ -60,28 +60,37 @@ router.post("/", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN", "
   if (grade_id && !canAccessGrade(req.user, grade_id)) {
     return res.status(403).json({ error: "You can only post notices for your own grade" });
   }
-  // Guard against oversized inline files (base64 adds ~33%). ~4MB of base64.
-  if (attachment_data && attachment_data.length > 4_000_000) {
-    return res.status(413).json({ error: "Attachment is too large. Keep files under about 3 MB." });
+  
+  // SECURITY FIX #5: Stricter file upload validation
+  if (attachment_data) {
+    // Base64 strings are ~133% of binary size. Estimate and enforce 3 MB limit.
+    const estimatedBinarySize = Math.ceil(attachment_data.length * 0.75);
+    if (estimatedBinarySize > 3_000_000) {
+      return res.status(413).json({ error: "File is too large. Maximum 3 MB." });
+    }
+    // Validate it's actually a proper base64 data URL
+    if (!attachment_data.match(/^data:(application|image)\/[a-zA-Z0-9\-\.+]+;base64,/)) {
+      return res.status(400).json({ error: "Attachment must be a valid data URL in format: data:type/subtype;base64,..." });
+    }
   }
 
-  const info = db.prepare(`
+  const info = await db.prepare(`
     INSERT INTO notices (title, body, category, grade_id, posted_by, attachment_name, attachment_data)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(title, body, category, grade_id || null, req.user.id, attachment_name || null, attachment_data || null);
 
-  res.status(201).json(db.prepare("SELECT id, title, body, category, grade_id, attachment_name FROM notices WHERE id = ?").get(info.lastInsertRowid));
+  res.status(201).json(await db.prepare("SELECT id, title, body, category, grade_id, attachment_name FROM notices WHERE id = ?").get(info.lastInsertRowid));
 });
 
 // GET /api/notices/:id/attachment -> the base64 data URL for download.
 // Access follows the same grade rules as reading the notice itself.
-router.get("/:id/attachment", (req, res) => {
-  const notice = db.prepare("SELECT * FROM notices WHERE id = ?").get(req.params.id);
+router.get("/:id/attachment", async (req, res) => {
+  const notice = await db.prepare("SELECT * FROM notices WHERE id = ?").get(req.params.id);
   if (!notice || !notice.attachment_data) {
     return res.status(404).json({ error: "No attachment on this notice" });
   }
   if (req.user.role === "PARENT") {
-    const child = db.prepare("SELECT grade_id FROM students WHERE parent_user_id = ?").get(req.user.id);
+    const child = await db.prepare("SELECT grade_id FROM students WHERE parent_user_id = ?").get(req.user.id);
     const allowed = notice.grade_id === null || (child && notice.grade_id === child.grade_id);
     if (!allowed) return res.status(403).json({ error: "This notice is not for your child's grade" });
   }
@@ -92,8 +101,8 @@ router.get("/:id/attachment", (req, res) => {
 });
 
 // DELETE /api/notices/:id  (author, or any admin)
-router.delete("/:id", (req, res) => {
-  const notice = db.prepare("SELECT * FROM notices WHERE id = ?").get(req.params.id);
+router.delete("/:id", async (req, res) => {
+  const notice = await db.prepare("SELECT * FROM notices WHERE id = ?").get(req.params.id);
   if (!notice) return res.status(404).json({ error: "Notice not found" });
 
   const isAuthor = notice.posted_by === req.user.id;
@@ -102,7 +111,7 @@ router.delete("/:id", (req, res) => {
     return res.status(403).json({ error: "You can only remove your own notices" });
   }
 
-  db.prepare("DELETE FROM notices WHERE id = ?").run(req.params.id);
+  await db.prepare("DELETE FROM notices WHERE id = ?").run(req.params.id);
   res.json({ ok: true });
 });
 

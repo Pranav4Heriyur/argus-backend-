@@ -10,10 +10,12 @@ const { requireAuth, requireRole, canAccessGrade } = require("../middleware/auth
 const router = express.Router();
 router.use(requireAuth);
 
+const NOW_SQL = "to_char(now() at time zone 'utc', 'YYYY-MM-DD HH24:MI:SS')";
+
 // ---------- Coordinator side: the approval toggle ----------
 
 // GET /api/scores/permissions?grade_id=2
-router.get("/permissions", (req, res) => {
+router.get("/permissions", async (req, res) => {
   const gradeId = req.query.grade_id || req.user.grade_id;
   if (!gradeId) return res.status(400).json({ error: "grade_id is required" });
   if (!canAccessGrade(req.user, gradeId)) {
@@ -21,7 +23,7 @@ router.get("/permissions", (req, res) => {
   }
 
   res.json(
-    db.prepare(`
+    await db.prepare(`
       SELECT p.*, g.name AS grade_name, u.name AS set_by_name
       FROM marks_permissions p
       JOIN grades g ON g.id = p.grade_id
@@ -35,7 +37,7 @@ router.get("/permissions", (req, res) => {
 // PUT /api/scores/permissions
 // { grade_id, test_name, subject, allowed }
 // Coordinator (own grade), Admin or Super Admin (any grade).
-router.put("/permissions", requireRole("COORDINATOR", "ADMIN", "SUPER_ADMIN"), (req, res) => {
+router.put("/permissions", requireRole("COORDINATOR", "ADMIN", "SUPER_ADMIN"), async (req, res) => {
   const { grade_id, test_name, subject, allowed } = req.body || {};
   if (!grade_id || !test_name || !subject) {
     return res.status(400).json({ error: "grade_id, test_name and subject are required" });
@@ -44,11 +46,11 @@ router.put("/permissions", requireRole("COORDINATOR", "ADMIN", "SUPER_ADMIN"), (
     return res.status(403).json({ error: "You can only set permissions for your own grade" });
   }
 
-  db.prepare(`
+  await db.prepare(`
     INSERT INTO marks_permissions (grade_id, test_name, subject, allowed, set_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    VALUES (?, ?, ?, ?, ?, ${NOW_SQL})
     ON CONFLICT(grade_id, test_name, subject)
-    DO UPDATE SET allowed = excluded.allowed, set_by = excluded.set_by, updated_at = datetime('now')
+    DO UPDATE SET allowed = excluded.allowed, set_by = excluded.set_by, updated_at = ${NOW_SQL}
   `).run(grade_id, test_name, subject, allowed ? 1 : 0, req.user.id);
 
   res.json({ ok: true, grade_id, test_name, subject, allowed: allowed ? 1 : 0 });
@@ -56,8 +58,8 @@ router.put("/permissions", requireRole("COORDINATOR", "ADMIN", "SUPER_ADMIN"), (
 
 // ---------- Teacher side: uploading marks ----------
 
-function isUploadAllowed(gradeId, testName, subject) {
-  const row = db.prepare(`
+async function isUploadAllowed(gradeId, testName, subject) {
+  const row = await db.prepare(`
     SELECT allowed FROM marks_permissions
     WHERE grade_id = ? AND test_name = ? AND subject = ?
   `).get(gradeId, testName, subject);
@@ -66,10 +68,10 @@ function isUploadAllowed(gradeId, testName, subject) {
 
 // GET /api/scores/can-upload?test_name=Term%20Test%201
 // Lets the teacher's UI grey out the upload form with a clear reason.
-router.get("/can-upload", requireRole("TEACHER"), (req, res) => {
+router.get("/can-upload", requireRole("TEACHER"), async (req, res) => {
   const testName = req.query.test_name;
   if (!testName) return res.status(400).json({ error: "test_name is required" });
-  const allowed = isUploadAllowed(req.user.grade_id, testName, req.user.subject);
+  const allowed = await isUploadAllowed(req.user.grade_id, testName, req.user.subject);
   res.json({
     allowed,
     reason: allowed
@@ -81,7 +83,7 @@ router.get("/can-upload", requireRole("TEACHER"), (req, res) => {
 // POST /api/scores
 // { test_name, entries: [{ student_id, score, total }] }
 // Subject is taken from the teacher's own account, never from the request.
-router.post("/", requireRole("TEACHER"), (req, res) => {
+router.post("/", requireRole("TEACHER"), async (req, res) => {
   const { test_name, entries } = req.body || {};
   if (!test_name || !Array.isArray(entries) || entries.length === 0) {
     return res.status(400).json({ error: "test_name and a non-empty entries array are required" });
@@ -90,16 +92,15 @@ router.post("/", requireRole("TEACHER"), (req, res) => {
     return res.status(400).json({ error: "Your account has no subject assigned. Ask your coordinator to set one." });
   }
 
-  if (!isUploadAllowed(req.user.grade_id, test_name, req.user.subject)) {
+  if (!(await isUploadAllowed(req.user.grade_id, test_name, req.user.subject))) {
     return res.status(403).json({
       error: "Uploads are locked for this test. Your grade coordinator has not approved them yet.",
     });
   }
 
   // Every student must actually belong to this teacher's grade.
-  const gradeStudentIds = new Set(
-    db.prepare("SELECT id FROM students WHERE grade_id = ?").all(req.user.grade_id).map((s) => s.id)
-  );
+  const gradeStudents = await db.prepare("SELECT id FROM students WHERE grade_id = ?").all(req.user.grade_id);
+  const gradeStudentIds = new Set(gradeStudents.map((s) => s.id));
   for (const e of entries) {
     if (!gradeStudentIds.has(Number(e.student_id))) {
       return res.status(400).json({ error: `Student ${e.student_id} is not in your grade` });
@@ -118,13 +119,13 @@ router.post("/", requireRole("TEACHER"), (req, res) => {
   `);
 
   // One transaction: a re-upload replaces the previous marks cleanly.
-  const saveAll = db.transaction((rows) => {
+  const saveAll = db.transaction(async (rows) => {
     for (const e of rows) {
-      clearExisting.run(e.student_id, req.user.subject, test_name);
-      insert.run(e.student_id, req.user.subject, test_name, e.score, e.total, req.user.id);
+      await clearExisting.run(e.student_id, req.user.subject, test_name);
+      await insert.run(e.student_id, req.user.subject, test_name, e.score, e.total, req.user.id);
     }
   });
-  saveAll(entries);
+  await saveAll(entries);
 
   res.status(201).json({ ok: true, uploaded: entries.length, subject: req.user.subject, test_name });
 });
@@ -133,8 +134,8 @@ router.post("/", requireRole("TEACHER"), (req, res) => {
 
 // GET /api/scores/student/:studentId
 // Parents may only read their own child. Staff are grade-scoped as usual.
-router.get("/student/:studentId", (req, res) => {
-  const student = db.prepare("SELECT * FROM students WHERE id = ?").get(req.params.studentId);
+router.get("/student/:studentId", async (req, res) => {
+  const student = await db.prepare("SELECT * FROM students WHERE id = ?").get(req.params.studentId);
   if (!student) return res.status(404).json({ error: "Student not found" });
 
   if (req.user.role === "PARENT") {
@@ -145,7 +146,7 @@ router.get("/student/:studentId", (req, res) => {
     return res.status(403).json({ error: "That student is outside your scope" });
   }
 
-  const scores = db.prepare(`
+  const scores = await db.prepare(`
     SELECT ts.*, u.name AS uploaded_by_name
     FROM test_scores ts
     LEFT JOIN users u ON u.id = ts.uploaded_by

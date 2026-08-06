@@ -1,17 +1,36 @@
+# NOTE: Render's free Postgres database expires 30 days after creation.
+# That's fine for a short-lived deployment, but if you need this running
+# longer, you'll need to upgrade the database or move to a provider like
+# Turso/Neon/Supabase that has a free tier with no expiry.
+databases:
+  - name: argus-db
+    plan: free
+
 services:
   - type: web
     name: argus-backend
     runtime: node
     plan: free
-    # Reseeds demo data on every deploy so testers always start clean.
-    # Remove "npm run seed &&" once you want data to persist between deploys.
+    # Safe to run every deploy now — seed.js only inserts baseline data into
+    # an EMPTY database and does nothing if users already exist.
     buildCommand: npm install && npm run seed
     startCommand: npm start
     envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: argus-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: PORT
         value: 10000
+      - key: NODE_ENV
+        value: production
+      # IMPORTANT: replace with your actual Render URL once deployed,
+      # e.g. https://argus-backend.onrender.com — the security patch
+      # blocks cross-origin requests that don't match this.
+      - key: ALLOWED_ORIGINS
+        value: "https://your-argus-domain.onrender.com"
       - key: SMTP_USER
         value: ""
       - key: SMTP_PASS

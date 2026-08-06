@@ -11,7 +11,15 @@
 const jwt = require("jsonwebtoken");
 const db = require("../db/db");
 
-const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-production";
+// SECURITY FIX #4: JWT_SECRET is now required. Fail on startup if missing.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET environment variable is required.\n" +
+    "Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"\n" +
+    "Then set it in your .env or Render environment variables."
+  );
+}
 
 // Higher number = more authority. Used for "can this user manage that user".
 const ROLE_RANK = {
@@ -32,14 +40,14 @@ function signToken(user) {
 }
 
 // Attaches req.user. Rejects missing/expired/deactivated accounts.
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: "Missing token" });
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    const user = db
+    const user = await db
       .prepare("SELECT * FROM users WHERE id = ? AND is_active = 1")
       .get(payload.id);
     if (!user) return res.status(401).json({ error: "Account not found or deactivated" });
@@ -79,6 +87,16 @@ function canAccessGrade(user, gradeId) {
   return false;
 }
 
+// A section belongs to one grade. Coordinator of that grade, that section's
+// own class teacher, and any admin-level role can access it. Other teachers
+// (not assigned to this section) cannot.
+function canAccessSection(user, section) {
+  if (user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "IT_ADMIN") return true;
+  if (user.role === "COORDINATOR") return Number(user.grade_id) === Number(section.grade_id);
+  if (user.role === "TEACHER") return Number(user.id) === Number(section.class_teacher_id);
+  return false;
+}
+
 module.exports = {
   JWT_SECRET,
   ROLE_RANK,
@@ -87,4 +105,5 @@ module.exports = {
   requireRole,
   canManageRole,
   canAccessGrade,
+  canAccessSection,
 };

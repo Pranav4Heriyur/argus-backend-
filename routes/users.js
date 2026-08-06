@@ -28,7 +28,7 @@ function generatePassword() {
 }
 
 // GET /api/users?role=TEACHER&grade_id=2
-router.get("/", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, res) => {
+router.get("/", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), async (req, res) => {
   const { role, grade_id } = req.query;
   let sql = `
     SELECT u.id, u.name, u.email, u.role, u.grade_id, u.subject, u.is_active, u.created_at,
@@ -53,12 +53,12 @@ router.get("/", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, res) =
   }
 
   sql += " ORDER BY u.role, u.name";
-  res.json(db.prepare(sql).all(...params));
+  res.json(await db.prepare(sql).all(...params));
 });
 
 // POST /api/users
 // { name, email, role, grade_id?, subject?, password? }
-router.post("/", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, res) => {
+router.post("/", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), async (req, res) => {
   const { name, email, role, grade_id, subject, password } = req.body || {};
 
   if (!name || !email || !role) {
@@ -75,11 +75,11 @@ router.post("/", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, res) 
     return res.status(403).json({ error: "You can only manage accounts in your own grade" });
   }
 
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(String(email).toLowerCase());
+  const existing = await db.prepare("SELECT id FROM users WHERE email = ?").get(String(email).toLowerCase());
   if (existing) return res.status(409).json({ error: "That email is already registered" });
 
   const tempPassword = password || generatePassword();
-  const info = db
+  const info = await db
     .prepare(`
       INSERT INTO users (name, email, password_hash, role, grade_id, subject, created_by)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -107,15 +107,20 @@ router.post("/", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, res) 
 });
 
 // PATCH /api/users/:id  { name?, subject?, grade_id?, is_active? }
-router.patch("/:id", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, res) => {
-  const target = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
+router.patch("/:id", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), async (req, res) => {
+  const target = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
   if (!target) return res.status(404).json({ error: "User not found" });
   if (!canManageRole(req.user.role, target.role)) {
     return res.status(403).json({ error: "You cannot modify this account" });
   }
 
+  // SECURITY FIX #3: Coordinators can only modify users in their own grade
+  if (req.user.role === "COORDINATOR" && target.grade_id && target.grade_id !== req.user.grade_id) {
+    return res.status(403).json({ error: "You can only modify accounts in your own grade" });
+  }
+
   const { name, subject, grade_id, is_active } = req.body || {};
-  db.prepare(`
+  await db.prepare(`
     UPDATE users SET
       name = COALESCE(?, name),
       subject = COALESCE(?, subject),
@@ -130,48 +135,59 @@ router.patch("/:id", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, r
     req.params.id
   );
 
-  res.json(db.prepare("SELECT id, name, email, role, grade_id, subject, is_active FROM users WHERE id = ?").get(req.params.id));
+  res.json(await db.prepare("SELECT id, name, email, role, grade_id, subject, is_active FROM users WHERE id = ?").get(req.params.id));
 });
 
 // DELETE /api/users/:id
 // Soft delete by default so historical marks/notices keep their author.
 // Pass ?hard=true to remove the row outright (SUPER_ADMIN only).
-router.delete("/:id", requireRole("SUPER_ADMIN", "ADMIN"), (req, res) => {
-  const target = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
+router.delete("/:id", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), async (req, res) => {
+  const target = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
   if (!target) return res.status(404).json({ error: "User not found" });
   if (!canManageRole(req.user.role, target.role)) {
     return res.status(403).json({ error: "You cannot remove this account" });
   }
+
+  // SECURITY FIX #3: Coordinators can only delete users in their own grade
+  if (req.user.role === "COORDINATOR" && target.grade_id && target.grade_id !== req.user.grade_id) {
+    return res.status(403).json({ error: "You can only remove accounts in your own grade" });
+  }
+
   if (Number(req.params.id) === req.user.id) {
     return res.status(400).json({ error: "You cannot remove your own account" });
   }
 
   if (req.query.hard === "true" && req.user.role === "SUPER_ADMIN") {
-    db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
+    await db.prepare("DELETE FROM users WHERE id = ?").run(req.params.id);
     return res.json({ ok: true, removed: "permanently" });
   }
 
-  db.prepare("UPDATE users SET is_active = 0 WHERE id = ?").run(req.params.id);
+  await db.prepare("UPDATE users SET is_active = 0 WHERE id = ?").run(req.params.id);
   res.json({ ok: true, removed: "deactivated" });
 });
 
 // POST /api/users/:id/reset-password -> returns a fresh temporary password
-router.post("/:id/reset-password", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), (req, res) => {
-  const target = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
+router.post("/:id/reset-password", requireRole("SUPER_ADMIN", "ADMIN", "COORDINATOR"), async (req, res) => {
+  const target = await db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
   if (!target) return res.status(404).json({ error: "User not found" });
   if (!canManageRole(req.user.role, target.role)) {
     return res.status(403).json({ error: "You cannot reset this account" });
   }
 
+  // SECURITY FIX #3: Coordinators can only reset passwords for users in their own grade
+  if (req.user.role === "COORDINATOR" && target.grade_id && target.grade_id !== req.user.grade_id) {
+    return res.status(403).json({ error: "You can only reset passwords for accounts in your own grade" });
+  }
+
   const tempPassword = generatePassword();
-  db.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
+  await db.prepare("UPDATE users SET password_hash = ? WHERE id = ?")
     .run(bcrypt.hashSync(tempPassword, 10), req.params.id);
   res.json({ ok: true, temporary_password: tempPassword });
 });
 
 // GET /api/users/grades  (helper for dropdowns)
-router.get("/meta/grades", (req, res) => {
-  res.json(db.prepare("SELECT * FROM grades ORDER BY id").all());
+router.get("/meta/grades", async (req, res) => {
+  res.json(await db.prepare("SELECT * FROM grades ORDER BY id").all());
 });
 
 module.exports = router;

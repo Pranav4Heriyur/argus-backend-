@@ -1639,33 +1639,56 @@ async function loadAndRenderAttendance() {
   }).join("");
 }
 
-let teachers = [
-  { id:1, name:"Mrs. Petunia Wobblebottom", subject:"Class Teacher, 2nd Grade A", initials:"PW",
-    messages:[
-      {from:"them", text:"Bob blew up the lab today. Everyone is fine and the fire alarm did not even go off, but we will not be doing the baking soda volcano again this year."},
-    ]},
-  { id:2, name:"Mr. Baxter Higglesworth", subject:"Physical Education", initials:"BH",
-    messages:[
-      {from:"them", text:"Bob got abducted by a pigeon at recess today. He was carried about four feet before landing safely on the mats and asking if we could do it again."},
-    ]},
-];
+// Threads are teacher <-> parent, always about one student. Unidirectional
+// by default — the parent can only reply once the teacher has flipped
+// two_way_enabled on for that thread (the alarm-toggle in the admin portal).
+function esc(s){ return (s == null ? "" : String(s)).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+let threads = [];
+let threadsLoaded = false;
 
+function initialsFor(name){
+  return (name || "?").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+}
 function lastMessagePreview(t){
-  if(t.messages.length === 0) return "No messages yet, say hello";
-  const last = t.messages[t.messages.length - 1];
-  const prefix = last.from === "me" ? "You: " : "";
-  return prefix + last.text;
+  if(!t.last_message) return "No messages yet";
+  return (t.last_from_me ? "You: " : "") + t.last_message;
+}
+
+async function loadThreads(){
+  if(!authToken) { threads = []; return; }
+  try{
+    const rows = await api("/messages/threads");
+    threads = rows.map(r => ({
+      id: r.id,
+      name: r.teacher_name,
+      subject: (r.teacher_subject || "Teacher") + (r.student_name ? ", about " + r.student_name : ""),
+      initials: initialsFor(r.teacher_name),
+      last_message: r.last_message,
+      two_way_enabled: !!r.two_way_enabled,
+    }));
+    threadsLoaded = true;
+  }catch(e){
+    console.warn("Could not load messages:", e.message);
+  }
 }
 
 function renderTeacherList(){
   const wrap = document.getElementById('teacher-list');
-  wrap.innerHTML = teachers.map(t => `
+  if(!authToken){
+    wrap.innerHTML = `<div style="text-align:center;color:var(--gray-text);font-size:13px;padding:30px 10px;">Sign in to see messages from your child's teachers.</div>`;
+    return;
+  }
+  if(!threads.length){
+    wrap.innerHTML = `<div style="text-align:center;color:var(--gray-text);font-size:13px;padding:30px 10px;">No messages yet. Your child's teacher will reach out here.</div>`;
+    return;
+  }
+  wrap.innerHTML = threads.map(t => `
     <div class="teacher-list-item" onclick="openThread(${t.id})">
-      <div class="teacher-avatar">${t.initials}</div>
+      <div class="teacher-avatar">${esc(t.initials)}</div>
       <div>
-        <b>${t.name}</b>
-        <span class="role">${t.subject}</span>
-        <span class="preview">${lastMessagePreview(t)}</span>
+        <b>${esc(t.name)}</b>
+        <span class="role">${esc(t.subject)}</span>
+        <span class="preview">${esc(lastMessagePreview(t))}</span>
       </div>
     </div>
   `).join('');
@@ -1673,57 +1696,80 @@ function renderTeacherList(){
 
 let activeTeacherId = null;
 
-function openThread(id){
+async function openThread(id){
   activeTeacherId = id;
   document.getElementById('messages-list-panel').style.display = 'none';
   document.getElementById('messages-thread-panel').style.display = 'flex';
-  const t = teachers.find(x => x.id === id);
+  const t = threads.find(x => x.id === id);
+  if(!t) return;
   document.getElementById('thread-name').textContent = t.name;
-  document.getElementById('thread-subject').textContent = t.subject + ", about Bob Wigglesworth";
-  renderThread();
+  document.getElementById('thread-subject').textContent = t.subject;
+  updateComposeAvailability(t);
+  await renderThread();
 }
 
 function closeThread(){
   activeTeacherId = null;
   document.getElementById('messages-list-panel').style.display = 'flex';
   document.getElementById('messages-thread-panel').style.display = 'none';
-  renderTeacherList();
+  loadThreads().then(renderTeacherList);
 }
 
-function renderThread(){
-  const t = teachers.find(x => x.id === activeTeacherId);
+// Locks the compose box while the conversation is one-way.
+function updateComposeAvailability(t){
+  const input = document.getElementById('compose-input');
+  const btn = document.getElementById('send-btn');
+  let hint = document.getElementById('compose-hint');
+  if(!hint){
+    hint = document.createElement('div');
+    hint.id = 'compose-hint';
+    hint.style.cssText = 'font-size:11.5px;color:var(--gray-text);padding:4px 16px 0;';
+    document.querySelector('.compose-row').insertAdjacentElement('beforebegin', hint);
+  }
+  const enabled = !!(t && t.two_way_enabled);
+  input.disabled = !enabled;
+  btn.disabled = !enabled;
+  input.placeholder = enabled ? "Message about your child..." : "One-way for now — the teacher hasn't turned on replies";
+  hint.textContent = enabled ? "" : "This teacher hasn't turned on two-way replies yet.";
+}
+
+async function renderThread(){
+  const t = threads.find(x => x.id === activeTeacherId);
   const wrap = document.getElementById('thread-messages');
-  if(t.messages.length === 0){
-    wrap.innerHTML = `<div style="text-align:center;color:var(--gray-text);font-size:13px;padding:30px 10px;">No messages yet. Send ${t.name.split(' ')[1] || t.name} a note about Bob.</div>`;
+  if(!t) return;
+  let msgs = [];
+  try{
+    msgs = await api("/messages/threads/" + t.id);
+  }catch(e){
+    wrap.innerHTML = `<div style="text-align:center;color:var(--gray-text);font-size:13px;padding:30px 10px;">Could not load messages: ${e.message}</div>`;
     return;
   }
-  wrap.innerHTML = t.messages.map(m => `
-    <div class="bubble ${m.from === 'me' ? 'me' : 'them'}">${m.text}</div>
+  if(msgs.length === 0){
+    wrap.innerHTML = `<div style="text-align:center;color:var(--gray-text);font-size:13px;padding:30px 10px;">No messages yet from ${t.name.split(' ')[0] || t.name}.</div>`;
+    return;
+  }
+  wrap.innerHTML = msgs.map(m => `
+    <div class="bubble ${m.sender_role === 'PARENT' ? 'me' : 'them'}">${esc(m.body)}</div>
   `).join('');
   wrap.scrollTop = wrap.scrollHeight;
 }
 
 async function sendMessage(){
   const input = document.getElementById('compose-input');
+  if(input.disabled) return;
   const text = input.value.trim();
   if(!text || activeTeacherId === null) return;
-  const t = teachers.find(x => x.id === activeTeacherId);
-
-  // Show it straight away, then persist it.
-  t.messages.push({from:"me", text});
   input.value = "";
-  renderThread();
-  renderHomeMessagePreview();
-
-  if(authToken){
-    try{
-      await api("/messages", {
-        method: "POST",
-        body: JSON.stringify({ thread_id: t.id, body: text }),
-      });
-    }catch(e){
-      console.warn("Message not saved to the server:", e.message);
-    }
+  try{
+    await api("/messages", {
+      method: "POST",
+      body: JSON.stringify({ thread_id: activeTeacherId, body: text }),
+    });
+    await renderThread();
+    await loadThreads();
+    renderHomeMessagePreview();
+  }catch(e){
+    alert(e.message);
   }
 }
 
@@ -2159,24 +2205,24 @@ function recenterMap(){
   leafletMap.fitBounds(routeLine.getBounds(), { padding:[24,24] });
 }
 
-// Home Message Center widget: one row per teacher, driven directly from
-// the teachers array so it always matches what is on the Messages tab.
+// Home Message Center widget: one row per thread, driven directly from
+// the threads array so it always matches what is on the Messages tab.
 function renderHomeMessagePreview(){
   const wrap = document.getElementById('home-message-preview');
   if(!wrap) return;
-  wrap.innerHTML = teachers.map(t => {
-    const last = t.messages[t.messages.length - 1];
-    const preview = last ? (last.from === "me" ? "You: " + last.text : last.text) : "No messages yet";
-    return `
+  if(!threads.length){
+    wrap.innerHTML = `<div style="padding:10px 2px;color:var(--gray-text);font-size:13px;">No messages yet.</div>`;
+    return;
+  }
+  wrap.innerHTML = threads.map(t => `
     <div class="home-msg-item" onclick="openThreadFromHome(${t.id})">
-      <div class="avatar-sm">${t.initials}</div>
+      <div class="avatar-sm">${esc(t.initials)}</div>
       <div class="home-msg-text">
-        <b>${t.name}</b>
-        <span>${preview}</span>
+        <b>${esc(t.name)}</b>
+        <span>${esc(lastMessagePreview(t))}</span>
       </div>
     </div>
-  `;
-  }).join('');
+  `).join('');
 }
 
 function openThreadFromHome(id){
@@ -2643,24 +2689,7 @@ async function loadFromBackend() {
   }
 
   // Messages
-  const threads = await api("/messages/threads");
-  if (threads.length) {
-    const loaded = [];
-    for (const t of threads) {
-      const msgs = await api("/messages/threads/" + t.id);
-      loaded.push({
-        id: t.id,
-        name: t.teacher_name,
-        subject: t.teacher_subject || "Teacher",
-        initials: t.teacher_name.split(" ").filter(w => /^[A-Z]/.test(w)).slice(-2).map(w => w[0]).join(""),
-        messages: msgs.map(m => ({
-          from: m.sender_role === "PARENT" ? "me" : "them",
-          text: m.body,
-        })),
-      });
-    }
-    teachers = loaded;
-  }
+  await loadThreads();
 
   // Test scores
   const scoreData = await api("/scores/student/" + currentStudent.id);

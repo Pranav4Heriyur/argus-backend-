@@ -12,18 +12,18 @@ const router = express.Router();
 router.use(requireAuth);
 
 // GET /api/syllabus?grade_id=2
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const { grade_id } = req.query;
   if (!grade_id) return res.status(400).json({ error: "grade_id is required" });
 
-  const rows = db.prepare(`
+  const rows = await db.prepare(`
     SELECT * FROM syllabus_chapters WHERE grade_id = ? ORDER BY subject, test_name, sort_order
   `).all(grade_id);
   res.json(rows);
 });
 
 // POST /api/syllabus  { grade_id, subject, test_name, chapter_name, sort_order }
-router.post("/", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"), (req, res) => {
+router.post("/", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"), async (req, res) => {
   const { grade_id, subject, test_name, chapter_name, sort_order } = req.body || {};
   if (!grade_id || !subject || !test_name || !chapter_name) {
     return res.status(400).json({ error: "grade_id, subject, test_name and chapter_name are required" });
@@ -32,24 +32,24 @@ router.post("/", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"), 
     return res.status(403).json({ error: "That grade is outside your scope" });
   }
 
-  const info = db.prepare(`
+  const info = await db.prepare(`
     INSERT INTO syllabus_chapters (grade_id, subject, test_name, chapter_name, sort_order, created_by)
     VALUES (?, ?, ?, ?, ?, ?)
   `).run(grade_id, subject, test_name, chapter_name, sort_order ?? 0, req.user.id);
 
-  res.status(201).json(db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(info.lastInsertRowid));
+  res.status(201).json(await db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(info.lastInsertRowid));
 });
 
 // PATCH /api/syllabus/:id
-router.patch("/:id", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"), (req, res) => {
-  const existing = db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(req.params.id);
+router.patch("/:id", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"), async (req, res) => {
+  const existing = await db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(req.params.id);
   if (!existing) return res.status(404).json({ error: "Chapter not found" });
   if (!canAccessGrade(req.user, existing.grade_id)) {
     return res.status(403).json({ error: "That grade is outside your scope" });
   }
 
   const { subject, test_name, chapter_name, sort_order } = req.body || {};
-  db.prepare(`
+  await db.prepare(`
     UPDATE syllabus_chapters SET
       subject = COALESCE(?, subject),
       test_name = COALESCE(?, test_name),
@@ -58,17 +58,17 @@ router.patch("/:id", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN
     WHERE id = ?
   `).run(subject ?? null, test_name ?? null, chapter_name ?? null, sort_order ?? null, req.params.id);
 
-  res.json(db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(req.params.id));
+  res.json(await db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(req.params.id));
 });
 
 // DELETE /api/syllabus/:id
-router.delete("/:id", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"), (req, res) => {
-  const existing = db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(req.params.id);
+router.delete("/:id", requireRole("TEACHER", "COORDINATOR", "ADMIN", "SUPER_ADMIN"), async (req, res) => {
+  const existing = await db.prepare("SELECT * FROM syllabus_chapters WHERE id = ?").get(req.params.id);
   if (!existing) return res.status(404).json({ error: "Chapter not found" });
   if (!canAccessGrade(req.user, existing.grade_id)) {
     return res.status(403).json({ error: "That grade is outside your scope" });
   }
-  db.prepare("DELETE FROM syllabus_chapters WHERE id = ?").run(req.params.id);
+  await db.prepare("DELETE FROM syllabus_chapters WHERE id = ?").run(req.params.id);
   res.json({ ok: true });
 });
 
