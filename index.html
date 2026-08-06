@@ -1290,9 +1290,20 @@
       <div class="greeting"><h1>Notices</h1><div class="meta-line">Bob Wigglesworth, Grade 2</div></div>
     </header>
     <main>
-      <div class="filter-group-label">Category</div>
-      <div class="filter-row" id="notice-filters-category"></div>
-      <div id="notice-list"></div>
+      <div class="filter-row" style="margin-bottom:14px;">
+        <button id="notices-subtab-notices" class="filter-chip active" onclick="switchNoticesSubtab('notices')">School notices</button>
+        <button id="notices-subtab-classgroup" class="filter-chip" onclick="switchNoticesSubtab('classgroup')">Class group</button>
+      </div>
+
+      <div id="notices-pane-notices">
+        <div class="filter-group-label">Category</div>
+        <div class="filter-row" id="notice-filters-category"></div>
+        <div id="notice-list"></div>
+      </div>
+
+      <div id="notices-pane-classgroup" style="display:none;">
+        <div id="classgroup-list"></div>
+      </div>
     </main>
   </div>
 
@@ -1861,6 +1872,47 @@ function renderNoticeList(){
       <span class="date">${n.date}, ${n.time}</span>
     </div>
   `;}).join('');
+}
+
+// ---------- Notices / Class group sub-tabs ----------
+function switchNoticesSubtab(which){
+  document.getElementById('notices-subtab-notices').classList.toggle('active', which === 'notices');
+  document.getElementById('notices-subtab-classgroup').classList.toggle('active', which === 'classgroup');
+  document.getElementById('notices-pane-notices').style.display = which === 'notices' ? '' : 'none';
+  document.getElementById('notices-pane-classgroup').style.display = which === 'classgroup' ? '' : 'none';
+  if (which === 'classgroup') loadClassGroup();
+}
+
+async function loadClassGroup(){
+  const wrap = document.getElementById('classgroup-list');
+  if (!currentStudent || !currentStudent.section_id) {
+    wrap.innerHTML = `<div class="placeholder"><div>Your child isn't assigned to a section yet, so there's no class group to show.</div></div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="placeholder"><div>Loading...</div></div>`;
+  try {
+    const data = await api(`/classgroup/${currentStudent.section_id}`);
+    if (!data.posts || data.posts.length === 0) {
+      wrap.innerHTML = `<div class="placeholder"><div>No class group posts yet from ${data.section ? data.section.name : "your child's"} teacher.</div></div>`;
+      return;
+    }
+    wrap.innerHTML = data.posts.map(p => `
+      <div class="notice-card" style="border-left-color:var(--purple);">
+        <span class="tag" style="background:#f1edff;color:var(--purple);">${(data.section && data.section.name) ? "Section " + data.section.name : "Class group"}</span>
+        <h3>${esc(p.title)}</h3>
+        <p style="white-space:pre-wrap;">${esc(p.body)}</p>
+        ${p.attachment_name ? `<a class="notice-attach">${esc(p.attachment_name)}</a>` : ""}
+        <span class="date">${esc(p.posted_by_name)} &middot; ${new Date(p.created_at).toLocaleDateString()}</span>
+      </div>
+    `).join('');
+  } catch (e) {
+    wrap.innerHTML = `<div class="placeholder"><div>Could not load class group: ${esc(e.message)}</div></div>`;
+  }
+}
+
+function escapeHtml(s){
+  if (s === null || s === undefined) return "";
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 }
 
 async function downloadNoticeFile(id){

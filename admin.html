@@ -420,7 +420,9 @@
           <div><label>Grade</label><select id="sec-grade" onchange="loadSections()"></select></div>
           <div><label>Section name</label><input id="sec-name" placeholder="A"></div>
           <div><label>Class teacher (optional)</label>
-            <select id="sec-teacher"><option value="">None</option></select>
+            <input id="sec-teacher-search" list="sec-teacher-list" placeholder="Type a teacher's name..." autocomplete="off" oninput="pickTeacherFromSearch()">
+            <datalist id="sec-teacher-list"></datalist>
+            <input type="hidden" id="sec-teacher">
           </div>
         </div>
         <div style="margin-top:14px;"><button onclick="createSection()">Create section</button></div>
@@ -746,12 +748,60 @@ async function openStudent(id) {
           ${field("Method", s.transport_method)}
           ${field("Bus route", s.bus_route)}
         </div>
+        <div class="detail-section-label">Grade &amp; section</div>
+        <div class="row">
+          <div><label>Grade</label><select id="move-grade" onchange="loadMoveSections(${s.id})"></select></div>
+          <div><label>Section</label><select id="move-section"><option value="">No section</option></select></div>
+          <div style="display:flex;align-items:flex-end;"><button onclick="moveStudent(${s.id})">Save</button></div>
+        </div>
       </div>
       <div class="detail-actions">
         <button class="ghost" onclick="closeDetail()">Close</button>
         ${["SUPER_ADMIN","ADMIN"].includes(me.role) ? `<button class="danger" onclick="deleteStudent(${s.id})">Remove student</button>` : ""}
       </div>`;
     document.getElementById("detail-overlay").classList.remove("hidden");
+    await populateMoveGradeOptions(s);
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+// Teachers can only move within their own grade/section, so lock the grade
+// dropdown for them; everyone else (coordinator/IT admin/admin) sees all grades.
+async function populateMoveGradeOptions(s) {
+  const gradeSel = document.getElementById("move-grade");
+  const canChangeGrade = ["SUPER_ADMIN", "ADMIN", "IT_ADMIN", "COORDINATOR"].includes(me.role);
+  if (canChangeGrade) {
+    gradeSel.innerHTML = grades.map(g => `<option value="${g.id}" ${g.id === s.grade_id ? "selected" : ""}>${esc(g.name)}</option>`).join("");
+  } else {
+    // Teacher: grade is fixed to the student's current grade.
+    gradeSel.innerHTML = `<option value="${s.grade_id}" selected>${esc(s.grade_name)}</option>`;
+    gradeSel.disabled = true;
+  }
+  await loadMoveSections(s.id, s.section_id);
+}
+
+async function loadMoveSections(studentId, preselectSectionId) {
+  try {
+    const gradeId = document.getElementById("move-grade").value;
+    const sections = await api(`/sections?grade_id=${gradeId}`);
+    const sel = document.getElementById("move-section");
+    const current = preselectSectionId !== undefined ? preselectSectionId : null;
+    sel.innerHTML = `<option value="">No section</option>` +
+      sections.map(sec => `<option value="${sec.id}" ${sec.id === current ? "selected" : ""}>${esc(sec.name)}</option>`).join("");
+  } catch (e) { showMsg("global-msg", e.message, false); }
+}
+
+async function moveStudent(studentId) {
+  try {
+    const gradeId = document.getElementById("move-grade").value;
+    const sectionId = document.getElementById("move-section").value;
+    const body = { student_id: studentId, new_section_id: sectionId ? Number(sectionId) : null };
+    // Only include new_grade_id if this role is allowed to change it (teachers can't).
+    if (["SUPER_ADMIN", "ADMIN", "IT_ADMIN", "COORDINATOR"].includes(me.role)) {
+      body.new_grade_id = Number(gradeId);
+    }
+    await api("/promotion/individual", { method: "POST", body: JSON.stringify(body) });
+    showMsg("global-msg", "Grade/section updated", true);
+    closeDetail(); loadStudents();
   } catch (e) { showMsg("global-msg", e.message, false); }
 }
 function closeDetail() { document.getElementById("detail-overlay").classList.add("hidden"); }
@@ -954,16 +1004,35 @@ async function saveFastAttendance() {
 }
 
 // ---------- Sections & class groups ----------
+let teacherDirectory = []; // [{id, name}] for the currently loaded grade, used by the search-as-you-type box
 async function loadSectionTeacherOptions() {
-  const sel = document.getElementById("sec-teacher");
+  const searchEl = document.getElementById("sec-teacher-search");
+  const listEl = document.getElementById("sec-teacher-list");
+  const hiddenEl = document.getElementById("sec-teacher");
   const gradeId = document.getElementById("sec-grade").value;
+  hiddenEl.value = "";
+  searchEl.value = "";
   try {
     const teachers = await api(`/users?role=TEACHER${gradeId ? "&grade_id=" + gradeId : ""}`);
-    sel.innerHTML = `<option value="">None</option>` + teachers.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+    teacherDirectory = teachers.map(t => ({ id: t.id, name: t.name }));
+    listEl.innerHTML = teacherDirectory.map(t => `<option value="${esc(t.name)}">`).join("");
+    searchEl.disabled = false;
+    searchEl.placeholder = "Type a teacher's name...";
   } catch (e) {
     // IT_ADMIN can't list users (/users is COORDINATOR/ADMIN/SUPER_ADMIN only) — fall back to typing an ID.
-    sel.outerHTML = `<input id="sec-teacher" placeholder="Teacher user ID (see People &rarr; Staff accounts)">`;
+    teacherDirectory = [];
+    listEl.innerHTML = "";
+    searchEl.placeholder = "Teacher user ID (see People \u2192 Staff accounts)";
   }
+}
+// As the user types a name that matches the datalist exactly, resolve it to
+// the teacher's id behind the scenes. If nothing matches (or the fallback
+// "type an ID" mode is active), treat the typed text itself as the id.
+function pickTeacherFromSearch() {
+  const typed = document.getElementById("sec-teacher-search").value.trim();
+  const hiddenEl = document.getElementById("sec-teacher");
+  const match = teacherDirectory.find(t => t.name === typed);
+  hiddenEl.value = match ? match.id : (teacherDirectory.length ? "" : typed);
 }
 async function createSection() {
   try {
