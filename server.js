@@ -70,6 +70,7 @@ app.use("/api/messages", require("./routes/messages"));
 app.use("/api/almanac", require("./routes/almanac"));
 app.use("/api/syllabus", require("./routes/syllabus"));
 app.use("/api/submissions", require("./routes/submissions"));
+app.use("/api/promotion", require("./routes/promotion"));
 
 app.get("/api/health", (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
